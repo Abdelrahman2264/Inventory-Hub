@@ -1,0 +1,291 @@
+﻿@page "/Assets"
+@inject IAssetRepository _IAsset
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogRepository _ILog
+@inject IAppUserRepository _IAppUser
+@inject ILogService _LogService
+@using ClosedXML.Excel
+@using InventorySystem.ViewModels
+@using Microsoft.AspNetCore.Authorization
+@using Asset = InventorySystem.ViewModels.Asset
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<BsModal OnModalConfirmation="ConfirmDelete_Click"
+         ButtonBootstrapStyle="btn-danger"
+         ButtonText="Delete"
+         Title="Are you sure you want to in Active this Device ?">
+</BsModal>
+
+@if (isProcessing)
+{
+    <div class="position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center">
+        <img src="/images/loading.gif" alt="Loading" />
+    </div>
+}
+else
+{
+
+    <div class="card shadow mt-4">
+        <div class="card-header bg-dark bg-gradient py-3 text-center">
+            <h2 class="text-white py-2">Assets</h2>
+        </div>
+
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <AuthorizeView Roles="Admin">
+                    <a href="/Assets/Create" class="btn btn-success btn-lg">
+                        <i class="bi bi-plus-square"></i> Add New Asset
+                    </a>
+                </AuthorizeView>
+
+                <div>
+                    <button class="btn btn-secondary mx-1" @onclick="ApplyFilters">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                    <button class="btn btn-warning" @onclick="ResetFilters">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    </button>
+                    <button class="btn btn-success mx-1" @onclick="ExportToExcel">
+                        <i class="bi bi-file-earmark-excel"></i> Export to Excel
+                    </button>
+                </div>
+            </div>
+
+            <table class="table table-hover text-center">
+                <thead class="table-info">
+                    <tr>
+                        <th>Serial Number <br> <input @bind="FilterSerialNumber" class="form-control form-control-sm border" /></th>
+                        <th>Type <br> <input @bind="FilterType" class="form-control form-control-sm" /></th>
+                        <th>Purchase Date <br> <input @bind="FilterPurchaseDate" class="form-control form-control-sm" type="datetime" /></th>
+                        <th>Expiry Date <br> <input @bind="FilterExpiryDate" class="form-control form-control-sm" type="datetime" /></th>
+                        <th>Brand <br> <input @bind="FilterBrand" class="form-control form-control-sm" /></th>
+                        <th>Model <br> <input @bind="FilterModelVersion" class="form-control form-control-sm" /></th>
+                        <th>Status <br> <input @bind="FilterStatus" class="form-control form-control-sm" /></th>
+                        <th>Description <br> <input @bind="FilterDescription" class="form-control form-control-sm" /></th>
+                        <th style="min-width:200px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var asset in FilteredAssets)
+                    {
+                        <tr>
+                            <td>@asset.SerialNumber</td>
+                            <td>
+                                <span class="badge text-white" style="background-color: @GetTypeColor(asset.Type.Name);">
+                                    @asset.Type.Name
+                                </span>
+                            </td>
+                            <td>@asset.PurchaseDate.ToShortDateString()</td>
+                            <td>@(asset.ExpiryDate?.ToShortDateString() ?? "No Expiry Data")</td>
+                            <td>@asset.Brand</td>
+                            <td>@asset.ModelVersion</td>
+                            <td>
+                                <span class="badge text-white" style="background-color: @GetStatusColor(asset.Status);">
+                                    @asset.Status
+                                </span>
+                            </td>
+                            <td>@asset.Description</td>
+                            <td>
+                                <a href="@($"Assets/Update/{asset.AssetId}")" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </a>
+                                <button type="button" class="btn btn-danger btn-sm" @onclick="() => HandleDelete(asset.AssetId)">
+                                    <i class="bi bi-trash3"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isProcessing { get; set; } = false;
+    private IEnumerable<Asset> Assets { get; set; } = new List<Asset>();
+    private int DeletedId { get; set; }
+    private Task<AuthenticationState> Authroize { get; set; }
+    private IEnumerable<Asset> FilteredAssets { get; set; } = new List<Asset>(); // Filtered Data
+    private string FilterSerialNumber { get; set; } = "";
+    private string FilterType { get; set; } = "";
+    private string FilterPurchaseDate { get; set; } = "";
+    private string FilterExpiryDate { get; set; } = "";
+    private string FilterBrand { get; set; } = "";
+    private string FilterModelVersion { get; set; } = "";
+    private string FilterStatus { get; set; } = "";
+    private string FilterDescription { get; set; } = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        await LoadTypes();
+        isProcessing = false;
+        Authroize = AuthenticationStateProvider.GetAuthenticationStateAsync();
+    }
+
+    private async Task LoadTypes()
+    {
+        Assets = await _IAsset.GetAllAssetAsync();
+        ApplyFilters();
+    }
+
+    public async Task HandleDelete(int id)
+    {
+        DeletedId = id;
+        await JS.InvokeVoidAsync("ShowConfirmationModal");
+    }
+
+    private async Task ConfirmDelete_Click(bool isConfirmed)
+    {
+        isProcessing = true;
+        await JS.InvokeVoidAsync("HideConfirmationModal");
+
+        if (isConfirmed && DeletedId != 0)
+        {
+            var temp = await _IAsset.GetAssetAsync(DeletedId);
+            var result = await _IAsset.DeleteAssetAsync(DeletedId);
+
+            if (result)
+            {
+                JS?.ToastrSuccess("Asset Device Was InActived Successfully");
+                await _LogService.CreateLogAsync(temp.AssetId, "Deleted a device in the System", "Assets", temp.Type.Name);
+            }
+            else
+            {
+                JS?.ToastrError("Error Encountered while deleting");
+            }
+
+            await LoadTypes();
+        }
+
+        DeletedId = 0;
+        isProcessing = false;
+    }
+    private string GetTypeColor(string typeName)
+    {
+        return typeName switch
+        {
+            "LapTop" => "#007bff",  // Blue
+            "DeskTop" => "#28a745", // Green
+            "Monitor" => "#ffc107", // Yellow
+            "Printer" => "#dc3545", // Red
+            _ => "#6c757d"          // Default (Gray)
+        };
+    }
+    private string GetStatusColor(string StatusName)
+    {
+        return StatusName switch
+        {
+            "Assigned" => "#007bff",  // Blue
+            "Stock" => "#28a745", // Green
+            "EndLife" => "#ffc107", // Yellow
+            _ => "#6c757d"          // Default (Gray)
+        };
+
+    }
+    private void ApplyFilters()
+    {
+        FilteredAssets = Assets.Where(a =>
+            (string.IsNullOrEmpty(FilterSerialNumber) || a.SerialNumber.Contains(FilterSerialNumber, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterType) || a.Type.Name.Contains(FilterType, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterPurchaseDate) || a.PurchaseDate.ToString("yyyy-MM-dd") == FilterPurchaseDate) &&
+            (string.IsNullOrEmpty(FilterExpiryDate) || (a.ExpiryDate?.ToString("yyyy-MM-dd") == FilterExpiryDate)) &&
+            (string.IsNullOrEmpty(FilterBrand) || a.Brand.Contains(FilterBrand, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterModelVersion) || a.ModelVersion.Contains(FilterModelVersion, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterStatus) || a.Status.Contains(FilterStatus, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterDescription) || a.Description.Contains(FilterDescription, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
+    }
+    private void ResetFilters()
+    {
+        FilterSerialNumber = "";
+        FilterType = "";
+        FilterPurchaseDate = "";
+        FilterExpiryDate = "";
+        FilterBrand = "";
+        FilterModelVersion = "";
+        FilterStatus = "";
+        FilterDescription = "";
+        ApplyFilters();
+
+    }
+
+    private async Task ExportToExcel()
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Assets");
+
+        // Add headers
+        worksheet.Cell(1, 1).Value = "Serial Number";
+        worksheet.Cell(1, 2).Value = "Type";
+        worksheet.Cell(1, 3).Value = "Purchase Date";
+        worksheet.Cell(1, 4).Value = "Expiry Date";
+        worksheet.Cell(1, 5).Value = "Brand";
+        worksheet.Cell(1, 6).Value = "Model";
+        worksheet.Cell(1, 7).Value = "Status";
+        worksheet.Cell(1, 8).Value = "Description";
+
+        // Add data
+        int row = 2;
+        foreach (var asset in FilteredAssets)
+        {
+            worksheet.Cell(row, 1).Value = asset.SerialNumber;
+            worksheet.Cell(row, 2).Value = asset.Type.Name;
+            worksheet.Cell(row, 3).Value = asset.PurchaseDate.ToShortDateString();
+            worksheet.Cell(row, 4).Value = asset.ExpiryDate?.ToShortDateString() ?? "No Expiry Data";
+            worksheet.Cell(row, 5).Value = asset.Brand;
+            worksheet.Cell(row, 6).Value = asset.ModelVersion;
+            worksheet.Cell(row, 7).Value = asset.Status;
+            worksheet.Cell(row, 8).Value = asset.Description;
+            row++;
+        }
+
+        // Create a new workbook and worksheet
+
+        // Set the header row style
+        var headerRow = worksheet.Range(1, 1, 1, worksheet.LastColumnUsed().ColumnNumber());
+        headerRow.SetAutoFilter(true);
+
+        headerRow.Style.Font.Bold = true;
+        headerRow.Style.Font.FontColor = XLColor.Black;
+        headerRow.Style.Fill.BackgroundColor = XLColor.OrangeColorWheel;
+        headerRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerRow.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        // Apply borders to the entire worksheet
+
+        worksheet.RangeUsed().Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
+        worksheet.RangeUsed().Style.Border.InsideBorder = XLBorderStyleValues.Thick;
+
+        // Set the font and alignment for all cells
+        worksheet.Style.Font.FontName = "Arial";
+        worksheet.Style.Font.FontSize = 10;
+        headerRow.Style.Font.FontSize = 10;
+
+        worksheet.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        worksheet.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        // Auto-adjust column width and row height
+        worksheet.Columns().AdjustToContents();
+        worksheet.Rows().AdjustToContents();
+
+        // Save the workbook
+
+
+
+
+
+        // Save the file to a memory stream
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var fileBytes = stream.ToArray();
+        var fileName = $"Assets_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // Trigger download in Blazor
+        await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(fileBytes));
+    }
+
+}

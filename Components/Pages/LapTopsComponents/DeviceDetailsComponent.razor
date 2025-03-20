@@ -1,0 +1,239 @@
+﻿@page "/DeskTops/Details/{Id:int}/{TypeId:int}"
+@page "/LapTops/Details/{Id:int}/{TypeId:int}"
+@inject ILapTopRepository _ILapTop
+@inject IDeskTopRepository _IDeskTop
+@inject IAssetRepository _IAsset
+@inject ISiteRepository _ISite
+@inject IAssignmentRepository _IAssign
+@inject IMaintenanceRepository _IMaintain
+@inject IJSRuntime JS
+@using InventorySystem.ViewModels
+@using LapTop = InventorySystem.ViewModels.Laptop
+@using DeskTop = InventorySystem.ViewModels.Desktop
+@using Site = InventorySystem.ViewModels.Site
+@rendermode InteractiveServer
+@attribute [Authorize]
+<PageTitle>Assets</PageTitle>
+
+@if (isProcessing)
+{
+    <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-50">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container mt-4">
+        <div class="card shadow-lg border-0 rounded-4">
+            <div class="card-header bg-dark text-white text-center py-3">
+                <h4 class="mb-0"><i class="bi bi-pc-display-horizontal me-2"></i> Device Details</h4>
+            </div>
+
+            <div class="card-body">
+                <div class="row row-cols-1 row-cols-md-2 g-3">
+                    <!-- General Information -->
+                    <div class="col">
+                        <h5 class="text-primary fw-bold"><i class="bi bi-motherboard me-2"></i> General Information</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>Brand:</strong> @device.Brand</li>
+                            <li class="list-group-item"><strong>Model:</strong> @device.ModelVersion</li>
+                            <li class="list-group-item"><strong>Serial Number:</strong> @device.SerialNumber</li>
+                            <li class="list-group-item"><strong>Device Name:</strong> COMPINE THE DEVICE NAME HERE</li>
+                            <li class="list-group-item">
+                                <strong>Status:</strong>
+                                <span class="badge rounded-pill text-white px-3" style="background-color: @GetStatusColor(device.Status);">
+                                    @device.Status
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Specifications -->
+                    <div class="col">
+                        <h5 class="text-primary fw-bold"><i class="bi bi-cpu me-2"></i> Specifications</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>RAM:</strong> @device.Ram</li>
+                            <li class="list-group-item"><strong>CPU:</strong> @device.Cpu</li>
+                            <li class="list-group-item"><strong>GPU:</strong> @device.Gpu</li>
+                            <li class="list-group-item"><strong>Hard Disk:</strong> @device.HardDisk</li>
+                            <li class="list-group-item"><strong>Operating System:</strong> @device.OS</li>
+
+                            @if (TypeId == 5)
+                            {
+                                <li class="list-group-item"><strong>Screen Size:</strong> @device.ScreenSize</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Asset and Network Details -->
+                <div class="row row-cols-1 row-cols-md-2 mt-4">
+                    <div class="col">
+                        <h5 class="text-primary fw-bold"><i class="bi bi-calendar-check me-2"></i> Asset Details</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>Purchase Date:</strong> @device.PurchaseDate.ToString("yyyy-MM-dd")</li>
+                            <li class="list-group-item"><strong>Expiry Date:</strong> @device.ExpiryDate?.ToString("yyyy-MM-dd")</li>
+                            <li class="list-group-item"><strong>Site:</strong> @site.Name</li>
+                            <li class="list-group-item"><strong>Type:</strong> @(TypeId == 4 ? "Desktop" : "Laptop")</li>
+                        </ul>
+                    </div>
+
+                    <div class="col">
+                        <h5 class="text-primary fw-bold"><i class="bi bi-wifi me-2"></i> Network</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>Ethernet MAC:</strong> @device.MacEthernet</li>
+                            <li class="list-group-item"><strong>WiFi MAC:</strong> @device.MacWifi</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Description -->
+                <div class="mt-4">
+                    <h5 class="text-primary fw-bold"><i class="bi bi-file-text me-2"></i> Description</h5>
+                    <p class="text-muted">@device.Description</p>
+                </div>
+
+                <!-- Assignment History -->
+                <div class="mt-4">
+                    <h5 class="text-primary fw-bold"><i class="bi bi-clock-history me-2"></i> Assignment History</h5>
+                    <table class="table table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Date Assigned</th>
+                                <th>User</th>
+                                <th>Fingerprint</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var history in AssignmentsHistory)
+                            {
+                                <tr>
+                                    <td>@history.AssignedDate</td>
+                                    <td class="fw-bold text-success">@(history.User.FirstName + " " + history.User.LastName)</td>
+                                    <td class="text-muted">@history.User.Fingerprint</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Maintenance History -->
+                <div class="mt-4">
+                    <h5 class="text-primary fw-bold"><i class="bi bi-gear-wide-connected me-2"></i> Maintenance History</h5>
+                    <table class="table table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Date Received</th>
+                                <th>Issue</th>
+                                <th>Solution</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var history in MaintenancesHistory)
+                            {
+                                <tr>
+                                    <td>@history.DateReceived</td>
+                                    <td class="text-muted">@history.Description</td>
+                                    <td class="fw-bold text-success">@history.Solution</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    [Parameter]
+    public int TypeId { get; set; }
+    private DeskTop deskTop { get; set; } = new DeskTop();
+    private DeskLapModel device { get; set; } = new DeskLapModel();
+    private bool isProcessing { get; set; } = false;
+    private LapTop lapTop { get; set; } = new LapTop();
+    private Site site { get; set; } = new Site();
+    private Asset asset { get; set; } = new Asset();
+    private IEnumerable<Assignment> AssignmentsHistory { get; set; } = new List<Assignment>();
+    private IEnumerable<Maintenance> MaintenancesHistory { get; set; } = new List<Maintenance>();
+
+    protected async override Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        if (TypeId == 4)
+        {
+            deskTop = await _IDeskTop.GetDeskTopAsync(Id);
+            asset = await _IAsset.GetAssetAsync(deskTop.AssetId);
+            AssignmentsHistory = await _IAssign.GetAllAssignmentsReturned();
+            AssignmentsHistory = AssignmentsHistory.Where(u => u.AssetId == deskTop.AssetId).ToList();
+            MaintenancesHistory = await _IMaintain.GetAllMaintenancesHistory();
+            MaintenancesHistory = MaintenancesHistory.Where(u => u.AssetId == deskTop.AssetId).ToList();
+            device = new DeskLapModel
+                {
+                    Brand = asset.Brand,
+                    ModelVersion = asset.ModelVersion,
+                    SerialNumber = asset.SerialNumber,
+                    Ram = deskTop.Ram,
+                    Cpu = deskTop.Cpu,
+                    Gpu = deskTop.Gpu,
+                    HardDisk = deskTop.HardDisk,
+                    Label = deskTop.Label,
+                    ExpiryDate = asset.ExpiryDate,
+                    Status = asset.Status,
+                    Description = asset.Description,
+                    MacEthernet = deskTop.MacEthernet,
+                    MacWifi = deskTop.MacWifi ?? "N/A",
+                    PurchaseDate = asset.PurchaseDate,
+                    TypeId = asset.TypeId,
+                    OS = deskTop.OS
+                };
+        }
+        else if (TypeId == 5)
+        {
+            lapTop = await _ILapTop.GetLapTopAsync(Id);
+            asset = await _IAsset.GetAssetAsync(lapTop.AssetId);
+            AssignmentsHistory = await _IAssign.GetAllAssignmentsReturned();
+            AssignmentsHistory = AssignmentsHistory.Where(u => u.AssetId == lapTop.AssetId).ToList();
+            MaintenancesHistory = await _IMaintain.GetAllMaintenancesHistory();
+            MaintenancesHistory = MaintenancesHistory.Where(u => u.AssetId == lapTop.AssetId).ToList();
+            device = new DeskLapModel
+                {
+                    Brand = asset.Brand,
+                    ModelVersion = asset.ModelVersion,
+                    SerialNumber = asset.SerialNumber,
+                    Ram = lapTop.Ram,
+                    Cpu = lapTop.Cpu,
+                    Gpu = lapTop.Gpu,
+                    HardDisk = lapTop.HardDisk,
+                    Label = lapTop.Label,
+                    ExpiryDate = asset.ExpiryDate,
+                    Status = asset.Status,
+                    Description = asset.Description,
+                    MacEthernet = lapTop.MacEthernet,
+                    MacWifi = lapTop.MacWifi,
+                    PurchaseDate = asset.PurchaseDate,
+                    TypeId = asset.TypeId,
+                    ScreenSize = lapTop.ScreenSize,
+                    OS = lapTop.OS
+
+                };
+        }
+        isProcessing = false;
+    }
+    private string GetStatusColor(string StatusName)
+    {
+        return StatusName switch
+        {
+            "Assigned" => "#007bff",  // Blue
+            "Stock" => "#28a745", // Green
+            "EndLife" => "#ffc107", // Yellow
+            _ => "#6c757d"          // Default (Gray)
+        };
+
+    }
+}

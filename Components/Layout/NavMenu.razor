@@ -1,0 +1,120 @@
+﻿@using InventorySystem.ViewModels
+@inject IAppUserRepository _IAppUser
+@inject ILogService _LogService
+
+<!-- Navbar -->
+<div class="navbar navbar-dark" style="background-color: rgba(0, 0, 0, 0.4)">
+    <div class="container-fluid">
+        <a class="navbar-brand end-100" href="">
+            <img src="/Images/android-chrome-512x512.png" alt="Logo" width="70" height="70">
+            <span class="fw-medium animate-color-change">INVENTORY HUB</span>
+        </a>
+    </div>
+</div>
+
+<!-- Navigation Menu -->
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" style="height:83vh" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <AuthorizeView>
+            <Authorized>
+                <!-- Navigation Links -->
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="Dashboard" Match="NavLinkMatch.All">
+                        <span class="bi bi-bar-chart" aria-hidden="true"></span> Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="Assets" Match="NavLinkMatch.All">
+                        <span class="bi bi-box-seam-fill" aria-hidden="true"></span> Assets
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="LapTops" Match="NavLinkMatch.All">
+                        <span class="bi bi-laptop-fill" aria-hidden="true"></span> Laptops
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="DeskTops" Match="NavLinkMatch.All">
+                        <span class="bi bi-pc-display" aria-hidden="true"></span> Desktops
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="Employees" Match="NavLinkMatch.All">
+                        <span class="bi bi-people-fill" aria-hidden="true"></span> Employees
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="Maintenance" Match="NavLinkMatch.All">
+                        <span class="bi bi-tools" aria-hidden="true"></span> Maintenance
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="Assignments" Match="NavLinkMatch.All">
+                        <span class="bi bi-clipboard-check-fill" aria-hidden="true"></span> Assignments
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="Types" Match="NavLinkMatch.All">
+                        <span class="bi bi-tags-fill" aria-hidden="true"></span> Category Types
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="Sites" Match="NavLinkMatch.All">
+                        <span class="bi bi-buildings-fill" aria-hidden="true"></span> Company Sites
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="Departments" Match="NavLinkMatch.All">
+                        <span class="bi bi-diagram-3-fill" aria-hidden="true"></span> Company Departments
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="logout" Match="NavLinkMatch.All">
+                        <i class="bi bi-box-arrow-left"></i> Log Out
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- Admin-Only Links -->
+        <AuthorizeView Roles="Admin">
+            <div class="nav-item">
+                <NavLink class="nav-link" href="SystemUsers" Match="NavLinkMatch.All">
+                    <span class="bi bi-person-gear" aria-hidden="true"></span> System Users
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Developer Credit -->
+
+    </nav>
+ 
+</div>
+
+<style>
+    /* Developer Credit Styling */
+    .developer-credit {
+        padding: 10px;
+        text-align: center;
+        background-color: rgba(0, 0, 0, 0.1); /* Subtle background */
+        border-radius: 5px;
+        : 90px;
+    }
+
+    .developer-link {
+        color: lightgray;
+        text-decoration: none;
+        font-size: 14px;
+        transition: color 0.3s ease;
+    }
+
+        .developer-link:hover {
+            color: #0077b5; /* LinkedIn brand color */
+        }
+
+        .developer-link i {
+            margin-right: 5px;
+        }
+</style>

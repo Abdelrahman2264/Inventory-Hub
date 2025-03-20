@@ -1,0 +1,69 @@
+﻿@inject NavigationManager _navigationManager
+@inject IAssetRepository _IAsset
+@inject IMaintenanceRepository _IMaintenance
+@inject IJSRuntime JS
+@using Asset = InventorySystem.ViewModels.Asset;
+@using Maintenance = InventorySystem.ViewModels.Maintenance;
+@rendermode InteractiveServer
+
+<div class="modal fade" id="MaintainReturn" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered w-50 h-50">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="exampleModalLabel">@Title</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+
+                <EditForm Model="MaintenanceData" FormName="DepartmentUpsertForm" OnSubmit="ConfirmationClicked" class="flex-form">
+                    <DataAnnotationsValidator></DataAnnotationsValidator>
+                    <ValidationSummary></ValidationSummary>
+
+
+                    <div class="form-group mb-2">
+                        <div class="form-floating">
+                            <InputDate @bind-Value="MaintenanceData.DateReturned" class="form-control border-1 border-black" id="DateReturned" required />
+                            <label for="DateReturned">Date Returned</label>
+                            <ValidationMessage For="@(()=>MaintenanceData.DateReturned)" />
+                        </div>
+                    </div>
+                    <div class="form-group mb-2">
+                        <div class="form-floating">
+                            <InputText @bind-Value="MaintenanceData.Solution" class="form-control border-1 border-black" id="Solution" required />
+                            <label for="Solution">Issue Solution</label>
+                            <ValidationMessage For="@(()=>MaintenanceData.Solution)" />
+                        </div>
+                    </div>
+
+                    <div class="form-group button-group">
+                        <div class="row mt-3 d-flex justify-content-end">
+                            <div class="col-auto">
+                                <button type="submit" class="btn  btn-success form-control">Confirm</button>
+                            </div>
+
+                        </div>
+
+
+                    </div>
+                </EditForm>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<Maintenance> OnModalConfirmation { get; set; }
+    [Parameter]
+    public string Title { get; set; } = "Please Confirm";
+    [Parameter]
+    public string ButtonBootstrapStyle { get; set; } = "btn-primary";
+    [Parameter]
+    public string ButtonText { get; set; } = "Confirm";
+    private Maintenance MaintenanceData { get; set; } = new Maintenance();
+    private async Task ConfirmationClicked()
+    {
+        await OnModalConfirmation.InvokeAsync(MaintenanceData);
+    }
+}

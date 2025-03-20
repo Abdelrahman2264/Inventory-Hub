@@ -1,0 +1,306 @@
+﻿@page "/Assignments"
+@inject IJSRuntime JS
+@inject IAssignmentRepository _IAssign
+@inject IAssetRepository _IAsset
+@inject ILogService _ILogService
+@using Assignment = InventorySystem.ViewModels.Assignment
+@using ClosedXML.Excel
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<PageTitle>Assets</PageTitle>
+
+<BsModal OnModalConfirmation="ConfirmDelete_Click"
+         ButtonBootstrapStyle="btn-primary "
+         ButtonText="Confirm"
+         Title="Are you sure you want to Take this Device From The  Employee ?">
+</BsModal>
+@if (isProcessing)
+{
+    <div class="position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center">
+        <img src="/images/loading.gif" alt="Loading" />
+    </div>
+}
+else
+{
+    <div class="card shadow border-2 mt-4">
+        <div class="card-header bg-dark bg-gradient ml-0 py-3 border-2">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2 class="text-white py-2">Assigned Devices</h2>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row pb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <AuthorizeView Roles="Admin">
+
+                        <a href="/Assign/Create" class="btn btn-success btn-lg">
+                            <i class="bi bi-arrow-up-right-square"></i>  Assign a Device
+                        </a>
+                    </AuthorizeView>
+                    <div>
+                        <button class="btn btn-secondary mx-1" @onclick="ApplyFilters">
+                            <i class="bi bi-funnel"></i> Filter
+                        </button>
+                        <button class="btn btn-warning" @onclick="ResetFilters">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </button>
+                        <button class="btn btn-success mx-1" @onclick="ExportToExcel">
+                            <i class="bi bi-file-earmark-excel"></i> Export to Excel
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <table class="table table-hover text-center">
+            <thead class="table-info">
+                <tr>
+                    <th>Serial Number   <br> <input @bind="FilterSerialNumber" class="form-control form-control-sm" /></th>
+                    <th>Type   <br> <input @bind="FilterType" class="form-control form-control-sm" /></th>
+                    <th>Brand   <br> <input @bind="FilterBrand" class="form-control form-control-sm" /></th>
+                    <th>Model Version   <br> <input @bind="FilterModelVersion" class="form-control form-control-sm" /></th>
+                    <th>First Name   <br> <input @bind="FilterUserFirstName" class="form-control form-control-sm" /></th>
+                    <th>Last Name   <br> <input @bind="FilterUserLastName" class="form-control form-control-sm" /></th>
+                    <th>Fingerprint   <br> <input @bind="FilterFingerPrint" class="form-control form-control-sm" /></th>
+                    <th>Jop Title   <br> <input @bind="FilterJopTitle" class="form-control form-control-sm" /></th>
+                    <th>Department   <br> <input @bind="FilterDepartment" class="form-control form-control-sm" /></th>
+                    <th>Site   <br> <input @bind="FilterSite" class="form-control form-control-sm" /></th>
+                    <th>Assigned Date   <br> <input @bind="FilterAssigndate" class="form-control form-control-sm" /></th>
+                    <AuthorizeView Roles="Admin">
+
+                        <th>Actions</th>
+                    </AuthorizeView>
+
+
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var assigned in FilteredAssignments)
+                {
+                    <tr>
+                        <td>@assigned.Asset.SerialNumber</td>
+                        <td>
+                            <span class="badge" style="background-color: @GetTypeColor(assigned.Asset.Type.Name); color: white;">
+                                @assigned.Asset.Type.Name
+                            </span>
+                        </td>
+                        <td>@assigned.Asset.Brand</td>
+                        <td>@assigned.Asset.ModelVersion</td>
+                        <td>@assigned.User.FirstName</td>
+                        <td>@assigned.User.LastName</td>
+                        <td>@assigned.User.Fingerprint</td>
+                        <td>@assigned.User.JobTitle</td>
+                        <td>@assigned.User.Department.Name</td>
+                        <td>@assigned.User.Site.Name</td>
+                        <td>@assigned.AssignedDate</td>
+                        <AuthorizeView Roles="Admin">
+
+                            <td>
+
+                                <button type="button" class="btn btn-danger btn-sm" @onclick="() => HandleDelete(assigned.AssignmentId , assigned.AssetId)">
+                                    <i class="bi bi-arrow-clockwise"></i> Reclaim
+                                </button>
+                            </td>
+                        </AuthorizeView>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+}
+
+@code {
+    private bool isProcessing { get; set; } = false;
+    private IEnumerable<Assignment> assignments { get; set; } = new List<Assignment>();
+    private int DeletedId { get; set; }
+    private int AssetId { get; set; }
+    private IEnumerable<Assignment> FilteredAssignments { get; set; } = new List<Assignment>(); // Filtered Data
+    private string FilterSerialNumber { get; set; } = "";
+    private string FilterType { get; set; } = "";
+    private string FilterUserFirstName { get; set; } = "";
+    private string FilterUserLastName { get; set; } = "";
+    private string FilterFingerPrint { get; set; } = "";
+    private string FilterJopTitle { get; set; } = "";
+    private string FilterBrand { get; set; } = "";
+    private string FilterModelVersion { get; set; } = "";
+    private string FilterDepartment { get; set; } = "";
+    private string FilterSite { get; set; } = "";
+    private string FilterAssigndate { get; set; } = "";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTypes();
+        isProcessing = false;
+    }
+
+    private async Task LoadTypes()
+    {
+        assignments = await _IAssign.GetAllAssignments();
+        FilteredAssignments = assignments;
+    }
+    public async Task HandleDelete(int id, int assetid)
+    {
+        DeletedId = id;
+        AssetId = assetid;
+        await JS.InvokeVoidAsync("ShowConfirmationModal");
+    }
+
+    private async Task ConfirmDelete_Click(bool isConfirmed)
+    {
+        isProcessing = true;
+        await JS.InvokeVoidAsync("HideConfirmationModal");
+        if (isConfirmed && DeletedId != 0)
+        {
+            var temp = await _IAsset.GetAssetAsync(AssetId);
+            var result = await _IAssign.ReturnFromAsync(DeletedId);
+            if (result)
+            {
+                await _ILogService.CreateLogAsync(AssetId, "Device Reclaim From The User", "Assignments", temp.Type.Name, DeletedId);
+                JS?.ToastrSuccess("Device Was Returned Successfully");
+            }
+            else
+                JS?.ToastrError("Error Encountered while deleting");
+            await LoadTypes();
+        }
+        DeletedId = 0;
+        isProcessing = false;
+    }
+    private string GetTypeColor(string typeName)
+    {
+        return typeName switch
+        {
+            "LapTop" => "#007bff",  // Blue
+            "DeskTop" => "#28a745", // Green
+            "Monitor" => "#ffc107", // Yellow
+            "Printer" => "#dc3545", // Red
+            _ => "#6c757d"          // Default (Gray)
+        };
+    }
+    private void ApplyFilters()
+    {
+        FilteredAssignments = assignments.Where(a =>
+            (string.IsNullOrEmpty(FilterSerialNumber) || a.Asset.SerialNumber.Contains(FilterSerialNumber, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterSite) || a.User.Site.Name.Contains(FilterSite, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterAssigndate) || a.AssignedDate.ToString().Contains(FilterAssigndate, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterUserFirstName) || a.User.FirstName.Contains(FilterUserFirstName, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterUserLastName) || a.User.LastName.Contains(FilterUserLastName, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterJopTitle) || a.User.JobTitle.Contains(FilterJopTitle, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterBrand) || a.Asset.Brand.Contains(FilterBrand, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterModelVersion) || a.Asset.ModelVersion.Contains(FilterModelVersion, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterDepartment) || a.User.Department.Name.Contains(FilterDepartment, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterType) || a.Asset.Type.Name.Contains(FilterType, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterFingerPrint) || a.User.Fingerprint.Contains(FilterFingerPrint, StringComparison.OrdinalIgnoreCase))
+
+        ).ToList();
+    }
+    private void ResetFilters()
+    {
+        FilterSerialNumber = "";
+        FilterType = "";
+        FilterUserFirstName = "";
+        FilterUserLastName = "";
+        FilterFingerPrint = "";
+        FilterJopTitle = "";
+        FilterBrand = "";
+        FilterModelVersion = "";
+        FilterDepartment = "";
+        FilterSite = "";
+        FilterAssigndate = "";
+        ApplyFilters();
+    }
+    private async Task ExportToExcel()
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("AssignAssets");
+
+        // Add headers
+        worksheet.Cell(1, 1).Value = "Fingerprint";
+        worksheet.Cell(1, 2).Value = "User Name";
+        worksheet.Cell(1, 3).Value = "Phone Number";
+        worksheet.Cell(1, 4).Value = "Email";
+        worksheet.Cell(1, 5).Value = "Department";
+        worksheet.Cell(1, 6).Value = "Jop Title";
+        worksheet.Cell(1, 7).Value = "Manager";
+        worksheet.Cell(1, 8).Value = "Site";
+        worksheet.Cell(1, 9).Value = "Serial Number";
+        worksheet.Cell(1, 10).Value = "Type";
+        worksheet.Cell(1, 11).Value = "Purchase Date";
+        worksheet.Cell(1, 12).Value = "Expiry Date";
+        worksheet.Cell(1, 13).Value = "Brand";
+        worksheet.Cell(1, 14).Value = "Model";
+        worksheet.Cell(1, 15).Value = "Status";
+        worksheet.Cell(1, 16).Value = "Description";
+
+
+        // Add data
+        int row = 2;
+
+
+
+        foreach (var assets in FilteredAssignments)
+        {
+            worksheet.Cell(row, 1).Value = assets.User.Fingerprint;
+            worksheet.Cell(row, 2).Value = assets.User.FirstName + " " + assets.User.LastName;
+            worksheet.Cell(row, 3).Value = assets.User.Phone;
+            worksheet.Cell(row, 4).Value = assets.User.Email;
+            worksheet.Cell(row, 5).Value = assets.User.Department.Name;
+            worksheet.Cell(row, 6).Value = assets.User.JobTitle;
+            worksheet.Cell(row, 7).Value = assets?.User.Manager?.FirstName + " " + assets?.User.Manager?.LastName ?? "No Manager";
+            worksheet.Cell(row, 8).Value = assets.User.Site.Name;
+            worksheet.Cell(row, 9).Value = assets.Asset.SerialNumber;
+            worksheet.Cell(row, 10).Value = assets.Asset.Type.Name;
+            worksheet.Cell(row, 11).Value = assets.Asset.PurchaseDate.ToShortDateString();
+            worksheet.Cell(row, 12).Value = assets.Asset.ExpiryDate?.ToShortDateString() ?? "No Expiry Data";
+            worksheet.Cell(row, 13).Value = assets.Asset.Brand;
+            worksheet.Cell(row, 14).Value = assets.Asset.ModelVersion;
+            worksheet.Cell(row, 15).Value = assets.Asset.Status;
+            worksheet.Cell(row, 16).Value = assets.Asset.Description;
+            row++;
+        }
+
+        // Create a new workbook and worksheet
+
+        // Set the header row style
+        var headerRow = worksheet.Range(1, 1, 1, worksheet.LastColumnUsed().ColumnNumber());
+        headerRow.SetAutoFilter(true);
+
+        headerRow.Style.Font.Bold = true;
+        headerRow.Style.Font.FontColor = XLColor.Black;
+        headerRow.Style.Fill.BackgroundColor = XLColor.OrangeColorWheel;
+        headerRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerRow.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        // Apply borders to the entire worksheet
+
+        worksheet.RangeUsed().Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
+        worksheet.RangeUsed().Style.Border.InsideBorder = XLBorderStyleValues.Thick;
+
+        // Set the font and alignment for all cells
+        worksheet.Style.Font.FontName = "Arial";
+        worksheet.Style.Font.FontSize = 10;
+        headerRow.Style.Font.FontSize = 10;
+
+        worksheet.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        worksheet.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        // Auto-adjust column width and row height
+        worksheet.Columns().AdjustToContents();
+        worksheet.Rows().AdjustToContents();
+
+        // Save the workbook
+
+        // Save the file to a memory stream
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var fileBytes = stream.ToArray();
+        var fileName = $"AssignAssets{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // Trigger download in Blazor
+        await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(fileBytes));
+    }
+}

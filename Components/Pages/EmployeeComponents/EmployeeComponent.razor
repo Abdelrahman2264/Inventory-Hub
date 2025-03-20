@@ -1,0 +1,269 @@
+﻿@page "/Employees"
+@inject IUserRepository _IUser
+@inject IJSRuntime JS
+@using User = InventorySystem.ViewModels.User
+@using ClosedXML.Excel
+@rendermode InteractiveServer
+<PageTitle>Employees</PageTitle>
+
+<BsModal OnModalConfirmation="ConfirmDelete_Click"
+         ButtonBootstrapStyle="btn-primary"
+         ButtonText="Confirm"
+         Title="Are you sure you want to in Active this Employee If You Confirm By Yes All The Devices Were Assigned To This User Will Back To Stock Again  ?">
+</BsModal>
+@if (isProcessing)
+{
+    <div class="position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center">
+        <img src="/images/loading.gif" alt="Loading" />
+    </div>
+}
+else
+{
+    <div class="card shadow  mt-4">
+        <div class="card-header bg-dark bg-gradient ml-0 py-3 ">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2 class="text-white py-2">Employees</h2>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row pb-3">
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <AuthorizeView Roles="Admin">
+
+                        <a href="/Employees/Create" class="btn btn-success btn-lg">
+                            <i class="bi bi-plus-square"></i> Add New Employee
+                        </a>
+
+                    </AuthorizeView>
+
+                    <div>
+                        <button class="btn btn-secondary mx-1" @onclick="ApplyFilters">
+                            <i class="bi bi-funnel"></i> Filter
+                        </button>
+                        <button class="btn btn-warning" @onclick="ResetFilters">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </button>
+                        <button class="btn btn-success mx-1" @onclick="ExportToExcel">
+                            <i class="bi bi-file-earmark-excel"></i> Export to Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <table class="table table-hover text-center">
+            <thead class="table-info">
+                <tr>
+                    <th>Fingerprint  <br /> <input @bind="FilterFingerPrint" class="form-control form-control-sm" /></th>
+                    <th>First Name  <br /> <input @bind="FilterFirstName" class="form-control form-control-sm" /></th>
+                    <th>Last Name  <br /> <input @bind="FilterLastName" class="form-control form-control-sm" /></th>
+                    <th>Phone  <br /> <input @bind="FilterPhone" class="form-control form-control-sm" /></th>
+                    <th>Email<br /><input @bind="FilterEmail" class="form-control form-control-sm" /></th>
+                    <th>Department  <br /> <input @bind="FilterDepartment" class="form-control form-control-sm" /></th>
+                    <th>Jop Title <br /> <input @bind="FilterJopTitile" class="form-control form-control-sm" /></th>
+                    <th>Site <br /> <input @bind="FilterSite" class="form-control form-control-sm" /></th>
+                    <th>Manager<br /> <input @bind="FilterManager" class="form-control form-control-sm" /></th>
+                    <th style="min-width:300px">Actions</th>
+
+
+
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in FilteredUsers)
+                {
+                    <tr>
+                        <td>@user.Fingerprint</td>
+                        <td>@user.FirstName</td>
+                        <td>@user.LastName</td>
+                        <td>@user.Phone</td>
+                        <td>@user.Email  </td>
+                        <td>@user.Department.Name</td>
+                        <td>@user.JobTitle </td>
+                        <td>@user.Site.Name</td>
+                        <td>@((user.Manager?.FirstName != null && user?.Manager?.LastName != null) ? user.Manager?.FirstName + " " + user?.Manager?.LastName : "No Manager ") </td>
+                        <td>
+                            <AuthorizeView Roles="Admin">
+
+                                <a href="@($"Employees/Update/{user.UserId}")" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </a>
+                            </AuthorizeView>
+                            <a href="@($"Employees/Details/{user.UserId}")" class="btn btn-success btn-sm">
+                                <i class="bi bi-info-circle"></i> Details
+                            </a>
+                            <AuthorizeView Roles="Admin">
+
+                                <button type="button" class="btn btn-danger btn-sm" @onclick="() => HandleDelete(user.UserId)">
+                                    <i class="bi bi-trash3"></i> In Active
+                                </button>
+                            </AuthorizeView>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+}
+@code {
+    private bool isProcessing { get; set; } = false;
+    private IEnumerable<User> Users { get; set; } = new List<User>();
+    private int DeletedId { get; set; } = 0;
+    private IEnumerable<User> FilteredUsers { get; set; } = new List<User>(); // Filtered Data
+    private string FilterFingerPrint { get; set; } = "";
+    private string FilterFirstName { get; set; } = "";
+    private string FilterLastName { get; set; } = "";
+    private string FilterPhone { get; set; } = "";
+    private string FilterEmail { get; set; } = "";
+    private string FilterDepartment { get; set; } = "";
+    private string FilterJopTitile { get; set; } = "";
+    private string FilterSite { get; set; } = "";
+    private string FilterManager { get; set; } = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        await LoadTypes();
+        isProcessing = false;
+    }
+    private async Task LoadTypes()
+    {
+        isProcessing = true;
+        Users = await _IUser.GetAllUsersAsync();
+        FilteredUsers = Users;
+        isProcessing = false;
+    }
+    public async Task HandleDelete(int id)
+    {
+        DeletedId = id;
+        await JS.InvokeVoidAsync("ShowConfirmationModal");
+    }
+
+    private async Task ConfirmDelete_Click(bool isConfirmed)
+    {
+        isProcessing = true;
+        await JS.InvokeVoidAsync("HideConfirmationModal");
+        if (isConfirmed && DeletedId != 0)
+        {
+            var result = await _IUser.DeleteUserAsync(DeletedId);
+            if (result)
+                JS?.ToastrSuccess("Employee Was Inactived Successfully");
+            else
+                JS?.ToastrError("Error Encountered while deleting");
+
+            await LoadTypes();
+        }
+
+        DeletedId = 0;
+        isProcessing = false;
+    }
+    private void ApplyFilters()
+    {
+        FilteredUsers = Users.Where(a =>
+            (string.IsNullOrEmpty(FilterFingerPrint) || a.Fingerprint.Contains(FilterFingerPrint, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterSite) || a.Site.Name.Contains(FilterSite, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterFirstName) || a.FirstName.Contains(FilterFirstName, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterLastName) || a.LastName.Contains(FilterLastName, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterPhone) || a.Phone.Contains(FilterPhone, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterEmail) || a.Email.Contains(FilterEmail, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterDepartment) || a.Department.Name.Contains(FilterDepartment, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterJopTitile) || a.JobTitle.Contains(FilterJopTitile, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterManager) || (a.Manager?.FirstName + " " + a.Manager?.LastName ?? "").Contains(FilterManager, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
+    }
+    private void ResetFilters()
+    {
+        FilterFingerPrint = "";
+        FilterFirstName = "";
+        FilterLastName = "";
+        FilterPhone = "";
+        FilterEmail = "";
+        FilterDepartment = "";
+        FilterJopTitile = "";
+        FilterSite = "";
+        FilterManager = "";
+        ApplyFilters();
+
+    }
+
+
+    private async Task ExportToExcel()
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Employees");
+
+        // Add headers
+        worksheet.Cell(1, 1).Value = "Fingerprint";
+        worksheet.Cell(1, 2).Value = "Full Name";
+        worksheet.Cell(1, 3).Value = "Phone Number";
+        worksheet.Cell(1, 4).Value = "Email";
+        worksheet.Cell(1, 5).Value = "Department";
+        worksheet.Cell(1, 6).Value = "Jop Title";
+        worksheet.Cell(1, 7).Value = "Manager";
+        worksheet.Cell(1, 8).Value = "Site";
+
+
+        // Add data
+        int row = 2;
+        foreach (var user in FilteredUsers)
+        {
+            worksheet.Cell(row, 1).Value = user.Fingerprint;
+            worksheet.Cell(row, 2).Value = user.FirstName + " " + user.LastName;
+            worksheet.Cell(row, 3).Value = user.Phone;
+            worksheet.Cell(row, 4).Value = user.Email;
+            worksheet.Cell(row, 5).Value = user.Department.Name;
+            worksheet.Cell(row, 6).Value = user.JobTitle;
+            worksheet.Cell(row, 7).Value = (user?.Manager?.FirstName) + " " + (user?.Manager?.LastName) ?? "No Manager";
+            worksheet.Cell(row, 8).Value = user?.Site.Name;
+            row++;
+        }
+
+        // Create a new workbook and worksheet
+
+        // Set the header row style
+        var headerRow = worksheet.Range(1, 1, 1, worksheet.LastColumnUsed().ColumnNumber());
+        headerRow.SetAutoFilter(true);
+
+        headerRow.Style.Font.Bold = true;
+        headerRow.Style.Font.FontColor = XLColor.Black;
+        headerRow.Style.Fill.BackgroundColor = XLColor.OrangeColorWheel;
+        headerRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerRow.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        // Apply borders to the entire worksheet
+
+        worksheet.RangeUsed().Style.Border.OutsideBorder = XLBorderStyleValues.Thick;
+        worksheet.RangeUsed().Style.Border.InsideBorder = XLBorderStyleValues.Thick;
+
+        // Set the font and alignment for all cells
+        worksheet.Style.Font.FontName = "Arial";
+        worksheet.Style.Font.FontSize = 10;
+        headerRow.Style.Font.FontSize = 10;
+
+        worksheet.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        worksheet.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        // Auto-adjust column width and row height
+        worksheet.Columns().AdjustToContents();
+        worksheet.Rows().AdjustToContents();
+
+        // Save the workbook
+
+
+
+
+
+        // Save the file to a memory stream
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var fileBytes = stream.ToArray();
+        var fileName = $"Employees_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+        // Trigger download in Blazor
+        await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(fileBytes));
+    }
+
+}

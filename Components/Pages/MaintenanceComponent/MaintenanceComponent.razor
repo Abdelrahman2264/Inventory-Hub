@@ -1,0 +1,194 @@
+﻿@page "/Maintenance"
+@inject IMaintenanceRepository _IMaintenance
+@inject IJSRuntime JS
+@inject ILogService _ILogService
+@using Maintenance = InventorySystem.ViewModels.Maintenance
+@rendermode InteractiveServer
+@attribute [Authorize]
+<PageTitle>Assets</PageTitle>
+
+<FormModal Title="Confirm Return"
+           ButtonText="Return"
+           ButtonBootstrapStyle="btn-Success"
+           OnModalConfirmation="ConfirmDelete_Click" />
+
+@if (isProcessing)
+{
+    <div class="position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center">
+        <img src="/images/loading.gif" alt="Loading" />
+    </div>
+}
+else
+{
+    <div class="card shadow border-2 mt-4">
+        <div class="card-header bg-dark bg-gradient ml-0 py-3 border-2">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2 class="text-white py-2">Assets In Maintenance</h2>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row pb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+
+                    <a href="/Maintenance/Create" class="btn btn-success btn-lg">
+                        <i class="bi bi-send"></i> Send Asset To Maintain
+                    </a>
+                    <div>
+                        <button class="btn btn-secondary mx-1" @onclick="ApplyFilters">
+                            <i class="bi bi-funnel"></i> Filter
+                        </button>
+                        <button class="btn btn-warning" @onclick="ResetFilters">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <table class="table table-hover text-center">
+            <thead class="table-info">
+                <tr>
+                    <th>Serial Number   <br> <input @bind="FilterSerialNumber" class="form-control form-control-sm" /></th>
+                    <th>Type   <br> <input @bind="FilterTypeMaintain" class="form-control form-control-sm" /></th>
+                    <th>Brand   <br> <input @bind="FilterBrand" class="form-control form-control-sm" /></th>
+                    <th>Model Version  <br> <input @bind="FilterModelVersion" class="form-control form-control-sm" /></th>
+                    <th>Recieved Date   <br> <input @bind="FilteRecievedate" class="form-control form-control-sm" /></th>
+                    <th>Sent Date   <br> <input @bind="FilteSentdate" class="form-control form-control-sm" /></th>
+                    <th>Location   <br> <input @bind="FilterLocation" class="form-control form-control-sm" /></th>
+                    <th>Issue   <br> <input @bind="FilterIssue" class="form-control form-control-sm" /></th>
+                    <th>Maintain Type <br> <input @bind="FilterType" class="form-control form-control-sm" /></th>
+
+                    <th>Actions</th>
+
+
+
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var asset in FilteredMaintenence)
+                {
+                    <tr>
+                        <td>@asset.Asset.SerialNumber</td>
+                        <td>@asset.Asset.Type.Name</td>
+                        <td>@asset.Asset.Brand</td>
+                        <td>@asset.Asset.ModelVersion</td>
+                        <td>@asset.DateReceived</td>
+                        <td>@asset.CreatedAt</td>
+                        <td>@asset.Location</td>
+                        <td>@asset.Description</td>
+                        <td>
+                            @if (asset.Type == "Maintain Out")
+                            {
+                                <span class="badge bg-danger">Out</span>
+
+
+                            }
+                            else
+                            {
+                                <span class="badge bg-primary" style="background-color:blue">In</span>
+
+                            }
+                        </td>
+                        <td>
+
+                            <button type="button" class="btn btn-primary btn-sm" @onclick="() => HandleDelete(asset.MaintenanceId)">
+                                <i class="bi bi-arrow-return-left"></i> Return
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+}
+@code {
+    private bool isProcessing { get; set; } = false;
+    private IEnumerable<Maintenance> Maintenances { get; set; } = new List<Maintenance>();
+    private int DeletedId { get; set; }
+    private IEnumerable<Maintenance> FilteredMaintenence { get; set; } = new List<Maintenance>(); // Filtered Data
+    private string FilterSerialNumber { get; set; } = "";
+    private string FilterType { get; set; } = "";
+    private string FilterBrand { get; set; } = "";
+    private string FilterModelVersion { get; set; } = "";
+    private string FilterLocation { get; set; } = "";
+    private string FilteRecievedate { get; set; } = "";
+    private string FilteSentdate { get; set; } = "";
+    private string FilterTypeMaintain { get; set; } = "";
+    private string FilterIssue { get; set; } = "";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        await LoadTypes();
+        isProcessing = false;
+    }
+
+    private async Task LoadTypes()
+    {
+        Maintenances = await _IMaintenance.GetAllMaintenances();
+        FilteredMaintenence = Maintenances;
+    }
+
+    private async Task HandleDelete(int id)
+    {
+        DeletedId = id;
+        await JS.InvokeVoidAsync("ShowMaintainReturnFormModal"); // Show modal
+    }
+
+    private async Task ConfirmDelete_Click(Maintenance maintenanceData)
+    {
+        isProcessing = true;
+        await JS.InvokeVoidAsync("HideMaintainReturnFormModal"); // Hide modal
+
+        if (DeletedId != 0)
+        {
+            var temp = await _IMaintenance.GetMaintenance(DeletedId);
+            var result = await _IMaintenance.DeleteMaintenance(maintenanceData, DeletedId);
+            if (result)
+            {
+                await _ILogService.CreateLogAsync(temp.AssetId, "Device Returnd From The Maintenance ", "Maintain", temp.Asset.Type.Name);
+                JS?.ToastrSuccess("Asset Device returned Successfully");
+
+            }
+            else
+                JS?.ToastrError("Error Encountered while deleting");
+
+            await LoadTypes();
+        }
+        DeletedId = 0;
+        isProcessing = false;
+    }
+    private void ApplyFilters()
+    {
+        FilteredMaintenence = Maintenances.Where(a =>
+            (string.IsNullOrEmpty(FilterSerialNumber) || a.Asset.SerialNumber.Contains(FilterSerialNumber, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterLocation) || a.Location.Contains(FilterLocation, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilteSentdate) || a.CreatedAt.ToString().Contains(FilteSentdate, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilteRecievedate) || a.DateReceived.ToString().Contains(FilteRecievedate, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterTypeMaintain) || a.Type.Contains(FilterTypeMaintain, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterBrand) || a.Asset.Brand.Contains(FilterBrand, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterModelVersion) || a.Asset.ModelVersion.Contains(FilterModelVersion, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterType) || a.Asset.Type.Name.Contains(FilterType, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(FilterIssue) || a.Description.Contains(FilterIssue, StringComparison.OrdinalIgnoreCase))
+
+        ).ToList();
+    }
+    private void ResetFilters()
+    {
+        FilterSerialNumber = "";
+        FilterType = "";
+        FilterBrand = "";
+        FilterModelVersion = "";
+        FilterLocation = "";
+        FilteRecievedate = "";
+        FilteSentdate = "";
+        FilterTypeMaintain = "";
+        FilterIssue = "";
+        ApplyFilters();
+
+    }
+}

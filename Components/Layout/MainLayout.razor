@@ -1,0 +1,59 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <AuthorizeView>
+        <Authorized>
+            <div class="sidebar">
+                <NavMenu />  <div class="developer-credit bottom-0" style="height:9vh">
+                    <a href="https://www.linkedin.com/in/abd-el-rahman-khalaf-81063a30b/" target="_blank" rel="noopener noreferrer" class="developer-link">
+                        <i class="bi bi-code-slash"></i> Developed By Abd EL-Rahman Khalaf
+                    </a>
+                </div>
+            </div>
+
+        </Authorized>
+    </AuthorizeView>
+
+    <main class="vh-100">
+        <article class="content">
+            @Body
+        </article>
+    </main>
+</div>
+
+
+
+
+<!-- Blazor Error UI -->
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+<!-- Styling -->
+<style>
+    .footer {
+        position: relative;
+        bottom: 0;
+        width: 100%;
+    }
+</style>
+<script>
+    function startCounterAnimation(elementId, targetNumber) {
+        let counterElement = document.getElementById(elementId);
+        let speed = 20; // Typing speed in milliseconds
+        let index = 0;
+
+        function typeText() {
+            if (index <= targetNumber) {
+                counterElement.textContent = index;
+                index++;
+                setTimeout(typeText, speed);
+            }
+        }
+
+        counterElement.textContent = "0"; // Set initial value
+        typeText(); // Start animation
+    }
+</script>

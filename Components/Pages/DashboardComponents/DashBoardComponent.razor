@@ -1,0 +1,527 @@
+﻿@page "/Dashboard"
+@inject IJSRuntime JS
+@inject ITypeRepository _IType
+@inject IAssetRepository _IAsset
+@inject IMaintenanceRepository _IMaintain
+@inject ILogRepository _ILog
+@inject ILogService log
+@inject IAppUserRepository _IUser
+@using ChartJs.Blazor.ChartJS.Common.Properties
+@using ChartJs.Blazor.ChartJS.LineChart
+@using InventorySystem.ViewModels
+@using Type = InventorySystem.ViewModels.Type;
+@using BlazorBootstrap;
+@using ChartJs.Blazor.Util
+@using static MudBlazor.Colors
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<PageTitle>Dashboard</PageTitle>
+
+@if (isProcessing)
+{
+    <!-- Loading State -->
+    <div class="position-absolute w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-white">
+        <img src="/images/Loading.gif" alt="Loading..." />
+    </div>
+}
+else if (hasError)
+{
+    <!-- Error State -->
+    <div class="alert alert-danger m-4">
+        <strong>Error:</strong> An error occurred while loading the data. Please try again later.
+    </div>
+}
+else
+{
+    <!-- Main Content -->
+    <div class="card shadow border-2 m-4">
+        <!-- Card Header -->
+        <div class="card-header bg-dark bg-gradient ml-1 pt-3 border-2">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2 class="text-white py-2">Dashboard</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card Body -->
+        <div class="card-body p-4">
+            <!-- Desktops Section -->
+            <div class="section">
+                <h1 class="section-title">Desktops</h1>
+                <div class="d-flex justify-content-around flex-wrap">
+                    <CountersComponent TargetNumber="@DeskStock" InsideText="Desktops" Id="22" OutsideText="Stock" />
+                    <CountersComponent TargetNumber="@DeskMaintain" InsideText="Desktops" Id="23" OutsideText="Maintain"></CountersComponent>
+                    <CountersComponent TargetNumber="@DeskAssigned" InsideText="Desktops" OutsideText="Assigned"></CountersComponent>
+
+                </div>
+            </div>
+
+            <!-- Laptops Section -->
+            <div class="section">
+                <h1 class="section-title">Laptops</h1>
+                <div class="d-flex justify-content-around flex-wrap">
+                    <CountersComponent TargetNumber="@LapStock" InsideText="Laptops" OutsideText="Stock"></CountersComponent>
+                    <CountersComponent TargetNumber="@LapMaintain" InsideText="Laptops" OutsideText="Maintain"></CountersComponent>
+                    <CountersComponent TargetNumber="@LapAssigned" InsideText="Laptops" OutsideText="Assigned"></CountersComponent>
+                </div>
+            </div>
+            <div class="section mt-5 ">
+                <h1 class="section-title">Devices Bar Chart</h1>
+                <div class="d-flex justify-content-around flex-wrap">
+                    <BarChart @ref="barChart" Width="1000" Height="500" />
+                </div>
+            </div>
+
+            <div class="section mt-5 ">
+                <div class="section mt-5">
+                    <h1 class="section-title">Asset Distribution Pie Chart</h1>
+                    <div class="d-flex justify-content-center flex-wrap">
+                        <PieChart @ref="assetPieChart" Width="500" />
+                        <div class="mt-5">
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="SetLegendTopAsync"> Position: Top </Button>
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="SetLegendRightAsync"> Position: Right </Button>
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="SetLegendBottomAsync"> Position: Bottom </Button>
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="SetLegendLeftAsync"> Position: Left </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (systemUser.Role == "User")
+            {
+                <div class="section mt-5 " hidden>
+                    <h1 class="section-title">System Users Pie Chart</h1>
+                    <div class="d-flex justify-content-center flex-wrap ">
+                        <PieChart @ref="pieChart" Width="500" />
+                        <div class="mt-5">
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="PositionTopAsync"> Position: top </Button>
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="PositionRightAsync"> Position: right </Button>
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="PositionBottomAsync"> Position: bottom </Button>
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="PositionLeftAsync"> Position: left </Button>
+                        </div>
+                    </div>
+                </div>
+            }     @if (systemUser.Role == "Admin")
+            {
+                <div class="section mt-5 " >
+                    <h1 class="section-title">System Users Pie Chart</h1>
+                    <div class="d-flex justify-content-center flex-wrap ">
+                        <PieChart @ref="pieChart" Width="500" />
+                        <div class="mt-5">
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="PositionTopAsync"> Position: top </Button>
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="PositionRightAsync"> Position: right </Button>
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="PositionBottomAsync"> Position: bottom </Button>
+                            <Button Type="ButtonType.Button" Color="ButtonColor.Primary" Size="ButtonSize.Small" @onclick="PositionLeftAsync"> Position: left </Button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+
+
+
+
+            <div class="section mt-5">
+                <h1 class="section-title">Recent Actions</h1>
+                <div class="d-flex justify-content-center flex-wrap">
+                    <table class="table table-hover text-center">
+                        <thead class="table-info">
+                            <tr>
+                                <th>Log Id  <br /></th>
+                                <th>Log Type </th>
+                                <th>Serial Number  </th>
+                                <th>Type  </th>
+                                <th>Description</th>
+                                <th>Date</th>
+                                <th>System User </th>
+
+
+
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <AuthorizeView Roles="Admin">
+                                @foreach (var log in RecentLogs)
+                                {
+
+                                    <tr>
+
+                                        <td>@log.LogId</td>
+                                        <td>@log.LogType</td>
+                                        <td>@log.Asset.SerialNumber</td>
+                                        <td>@log.Asset.Type.Name  </td>
+                                        <td>@log.ChangeDescription</td>
+                                        <td>@log.ChangeDate </td>
+                                        <td>@log.AppUser.LoginName</td>
+
+                                    </tr>
+
+                            }
+                            </AuthorizeView>
+                            <AuthorizeView Roles="User">
+
+                                @foreach (var log in RecentLogs)
+                                {
+                                    @if (log.AppUserId == currentUser)
+                                    {
+                                        <tr>
+
+                                            <td>@log.LogId</td>
+                                            <td>@log.LogType</td>
+                                            <td>@log.Asset.SerialNumber</td>
+                                            <td>@log.Asset.Type.Name  </td>
+                                            <td>@log.ChangeDescription</td>
+                                            <td>@log.ChangeDate </td>
+                                            <td>@log.AppUser.LoginName</td>
+
+                                        </tr>
+                                    }
+                                }
+                            </AuthorizeView>
+
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+
+
+        </div>
+    </div>
+}
+
+
+@code {
+    private bool isProcessing { get; set; } = true; // Simulate loading state
+    private bool hasError { get; set; } = false; // Track if an error occurred
+    private IEnumerable<Asset> Assets { get; set; } = new List<Asset>();
+    private IEnumerable<Maintenance> AllMaintainAssets { get; set; } = new List<Maintenance>();
+    private int currentUser { get; set; } = 0;
+    private IEnumerable<Asset> Stock { get; set; } = new List<Asset>();
+    private IEnumerable<Asset> Assigned { get; set; } = new List<Asset>();
+    private int DeskStock { get; set; }
+    private int DeskAssigned { get; set; }
+    private int DeskMaintain { get; set; }
+    private int LapStock { get; set; }
+    private int LapAssigned { get; set; }
+    private int LapMaintain { get; set; }
+    private AppUsers systemUser { get; set; } = new AppUsers();
+    private List<AssetSummary> AssetSummaries { get; set; } = new();
+
+    private BarChart barChart = default!;
+    private BarChartOptions barChartOptions = default!;
+    private ChartData chartData = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadData();
+            InitializeChart();
+            await LoadData2(); // Load data and prepare the chart
+            InitializePieChart();
+            await LoadAssets();
+            InitializeAssetPieChart();
+            await LoadData4();
+            currentUser = await log.ReturnCurrentUserID();
+            systemUser = await _IUser.GetAppUserAsync(currentUser);
+        }
+        catch (Exception ex)
+        {
+            hasError = true;
+            Console.Error.WriteLine($"Error loading data: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task LoadData()
+    {
+        isProcessing = true;
+        hasError = false;
+
+        Assets = await _IAsset.GetAllAssetAsync() ?? new List<Asset>();
+        AllMaintainAssets = await _IMaintain.GetAllMaintenances() ?? new List<Maintenance>();
+
+        Stock = Assets.Where(u => u.Status == "Stock").ToList();
+        Assigned = Assets.Where(u => u.Status == "Assigned").ToList();
+
+        // Group by Type and calculate stock & assigned count
+        AssetSummaries = Assets
+            .GroupBy(a => a.Type?.Name) // Null check for Type
+            .Where(g => g.Key != null) // Filter out null keys
+            .Select(g => new AssetSummary
+                {
+                    Type = g.Key!,
+                    StockCount = g.Count(a => a.Status == "Stock"),
+                    AssignedCount = g.Count(a => a.Status == "Assigned")
+                })
+            .ToList();
+
+        // Ensure `Assets` and `AllMaintainAssets` are not null
+        DeskStock = AssetSummaries
+            .Where(a => a.Type == "DeskTop")
+            .Sum(a => (int?)a.StockCount) ?? 0;
+        DeskAssigned = AssetSummaries
+            .Where(a => a.Type == "DeskTop")
+            .Sum(a => (int?)a.AssignedCount) ?? 0;
+        DeskMaintain = AllMaintainAssets
+            .Count(u => u.Asset?.Type?.Name == "DeskTop");
+
+        LapStock = AssetSummaries
+            .Where(a => a.Type == "LapTop")
+            .Sum(a => (int?)a.StockCount) ?? 0;
+        LapAssigned = AssetSummaries
+            .Where(a => a.Type == "LapTop")
+            .Sum(a => (int?)a.AssignedCount) ?? 0;
+        LapMaintain = AllMaintainAssets
+            .Count(u => u.Asset?.Type?.Name == "LapTop");
+    }
+
+    private void InitializeChart()
+    {
+        if (AssetSummaries == null || !AssetSummaries.Any())
+        {
+            return;
+        }
+
+        var colors = ColorUtility.CategoricalTwelveColors;
+
+        var labels = AssetSummaries.Select(a => a.Type).ToList();
+        var datasets = new List<IChartDataset>();
+
+        var stockData = new BarChartDataset()
+            {
+                Label = "Stock",
+                Data = AssetSummaries.Select(a => (double?)a.StockCount).ToList(),
+                BackgroundColor = new List<string> { colors[0] },
+                BorderColor = new List<string> { colors[0] },
+                BorderWidth = new List<double> { 0 },
+            };
+        datasets.Add(stockData);
+
+        var assignedData = new BarChartDataset()
+            {
+                Label = "Assigned",
+                Data = AssetSummaries.Select(a => (double?)a.AssignedCount).ToList(),
+                BackgroundColor = new List<string> { colors[1] },
+                BorderColor = new List<string> { colors[1] },
+                BorderWidth = new List<double> { 0 },
+            };
+        datasets.Add(assignedData);
+
+        chartData = new ChartData { Labels = labels, Datasets = datasets };
+
+        barChartOptions = new()
+            {
+                Locale = "de-DE",
+                Responsive = true,
+                Interaction = new Interaction { Mode = InteractionMode.Y },
+                IndexAxis = "y",
+                Scales = new()
+                {
+                    X = new()
+                    {
+                        Title = new ChartAxesTitle { Text = "Count", Display = true },
+                        Stacked = true
+                    },
+                    Y = new()
+                    {
+                        Title = new ChartAxesTitle { Text = "Device Type", Display = true },
+                        Stacked = true
+                    }
+                },
+                Plugins = new()
+                {
+                    Title = new()
+                    {
+                        Text = "Status",
+                        Display = true
+                    }
+                }
+            };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (chartData != null && barChartOptions != null && (chartData2 != null || assetChartData != null))
+        {
+            await barChart.InitializeAsync(chartData, barChartOptions);
+            await pieChart.InitializeAsync(chartData2, pieChartOptions);
+            await assetPieChart.InitializeAsync(assetChartData, assetPieChartOptions);
+
+        }
+    }
+
+    private class AssetSummary
+    {
+        public string Type { get; set; } = string.Empty;
+        public double StockCount { get; set; }
+        public double AssignedCount { get; set; }
+    }
+}
+@code {
+    private PieChart pieChart = default!;
+    private PieChartOptions pieChartOptions = default!;
+    private ChartData chartData2 = default!;
+    private string[]? backgroundColors;
+    private IEnumerable<LogsHistory> AllLogs { get; set; } = new List<LogsHistory>();
+    private int datasetsCount = 0;
+    private int dataLabelsCount = 0;
+
+    private Random random = new();
+
+    private async Task LoadData2()
+    {
+        // Fetch logs and group by user
+        AllLogs = await _ILog.GetAllLogsAsync() ?? new List<LogsHistory>();
+
+        // Join logs with users to get usernames
+        var userLogCounts = AllLogs
+            .GroupBy(log => log.AppUserId)
+            .Select(group => new
+            {
+                UserId = group.Key,
+                LogCount = group.Count(),
+                UserName = AllLogs.FirstOrDefault(u => u.AppUserId == group.Key)?.AppUser.LoginName ?? $"User {group.Key}"
+            })
+            .ToList();
+
+        // Prepare pie chart data
+        var labels = userLogCounts.Select(ulc => ulc.UserName).ToList(); // Use username instead of "User {UserId}"
+        var data = userLogCounts.Select(ulc => (double?)ulc.LogCount).ToList();
+        var colors = GetRandomBackgroundColors(userLogCounts.Count);
+
+        chartData2 = new ChartData
+            {
+                Labels = labels,
+                Datasets = new List<IChartDataset>
+        {
+            new PieChartDataset
+            {
+                Label = "Logs per User",
+                Data = data,
+                BackgroundColor = colors
+            }
+        }
+            };
+    }
+    private void InitializePieChart()
+    {
+        pieChartOptions = new PieChartOptions
+            {
+                Responsive = true,
+                Plugins = new()
+                {
+                    Title = new() { Text = "Most Interactive Users", Display = true },
+                    Legend = new() { Position = "right" }
+                }
+            };
+    }
+
+    private List<string> GetRandomBackgroundColors(int count)
+    {
+        return Enumerable.Range(0, count)
+            .Select(i => ColorUtility.CategoricalTwelveColors[i % ColorUtility.CategoricalTwelveColors.Length])
+            .ToList();
+    }
+
+    private async Task PositionTopAsync() => await UpdatePositionAsync("top");
+    private async Task PositionRightAsync() => await UpdatePositionAsync("right");
+    private async Task PositionBottomAsync() => await UpdatePositionAsync("bottom");
+    private async Task PositionLeftAsync() => await UpdatePositionAsync("left");
+
+    private async Task UpdatePositionAsync(string position)
+    {
+        pieChartOptions.Plugins.Legend.Position = position;
+        await pieChart.UpdateAsync(chartData2, pieChartOptions);
+    }
+}
+@code {
+    private PieChart assetPieChart = default!;
+    private PieChartOptions assetPieChartOptions = default!;
+    private ChartData assetChartData = default!;
+    private IEnumerable<Asset> allAssets = new List<Asset>();
+
+    private Random randomGenerator = new();
+
+    private async Task LoadAssets()
+    {
+        // Fetch all assets
+        allAssets = await _IAsset.GetAllAssetInTableAsync() ?? new List<Asset>();
+
+        // Group assets by status and count each category
+        var assetStatusCounts = allAssets
+            .GroupBy(asset => asset.Status)
+            .Select(group => new
+            {
+                Status = group.Key,
+                Count = group.Count()
+            })
+            .ToList();
+
+        // Prepare pie chart labels and data
+        var labels = assetStatusCounts.Select(a => a.Status).ToList();
+        var data = assetStatusCounts.Select(a => (double?)a.Count).ToList();
+        var colors = GenerateAssetBackgroundColors(assetStatusCounts.Count);
+
+        assetChartData = new ChartData
+            {
+                Labels = labels,
+                Datasets = new List<IChartDataset>
+            {
+                new PieChartDataset
+                {
+                    Label = "Assets by Status",
+                    Data = data,
+                    BackgroundColor = colors
+                }
+            }
+            };
+    }
+
+    private void InitializeAssetPieChart()
+    {
+        assetPieChartOptions = new PieChartOptions
+            {
+                Responsive = true,
+                Plugins = new()
+                {
+                    Title = new() { Text = "Asset Distribution by Status", Display = true },
+                    Legend = new() { Position = "right" }
+                }
+            };
+    }
+
+    private List<string> GenerateAssetBackgroundColors(int count)
+    {
+        return new List<string> { "#28a745", "#ffc107", "#dc3545" } // Green, Yellow, Red
+            .Take(count)
+            .ToList();
+    }
+
+    private async Task SetLegendTopAsync() => await UpdateLegendPositionAsync("top");
+    private async Task SetLegendRightAsync() => await UpdateLegendPositionAsync("right");
+    private async Task SetLegendBottomAsync() => await UpdateLegendPositionAsync("bottom");
+    private async Task SetLegendLeftAsync() => await UpdateLegendPositionAsync("left");
+
+    private async Task UpdateLegendPositionAsync(string position)
+    {
+        assetPieChartOptions.Plugins.Legend.Position = position;
+        await assetPieChart.UpdateAsync(assetChartData, assetPieChartOptions);
+    }
+}
+@code {
+    private IEnumerable<LogsHistory> RecentLogs { get; set; } = new List<LogsHistory>();
+    private async Task LoadData4()
+    {
+
+        RecentLogs = await _ILog.GetAllLogsAsync();
+        RecentLogs = RecentLogs.OrderByDescending(u => u.ChangeDate).Take(15).ToList();
+    }
+}

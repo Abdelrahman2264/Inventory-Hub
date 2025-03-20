@@ -1,0 +1,305 @@
+﻿@page "/Employees/Create"
+@page "/Employees/Update/{id:int}"
+@inject IUserRepository _IUser
+@inject IDepartmentRepository _IDepartment
+@inject ISiteRepository _ISite
+@inject IJSRuntime JS
+@inject NavigationManager _navigationManager
+@using User = InventorySystem.ViewModels.User
+@using Site = InventorySystem.ViewModels.Site
+@using Department = InventorySystem.ViewModels.Department
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+<PageTitle>Employees</PageTitle>
+
+@if (isProcessing)
+{
+    <div class="position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center">
+        <img src="/images/loading.gif" alt="Loading" />
+    </div>
+}
+else
+{
+    <div class="card shadow border-2 m-4 ">
+        <div class="card-header bg-dark bg-gradient ml-1 pt-3 ">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2 class="text-white py-2">@(user.UserId == 0 ? "Add Employee" : "Update Employee")</h2>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-4">
+
+            <EditForm Model="user" FormName="UserUpsertForm" OnValidSubmit="UpsertUser" class="flex-form">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <ValidationSummary></ValidationSummary>
+                @if (exist)
+                {
+
+
+                    <ul>
+                        @if (ExistPhoneError != string.Empty)
+                        {
+                            <li>
+                                <span class="text-danger">@ExistPhoneError</span>
+                            </li>
+                        }
+                        @if (ExistEmailError != string.Empty)
+                        {
+
+                            <li>
+                                <span class="text-danger">@ExistEmailError</span>
+                            </li>
+                        }
+                        @if (ExistFingerprintError != string.Empty)
+                        {
+                            <li>
+                                <span class="text-danger">@ExistFingerprintError</span>
+                            </li>
+                        }
+
+                    </ul>
+                }
+                <!-- Serial Number (Single Line) -->
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="user.Fingerprint" class="form-control border-1 border-black" id="Fingerprint" />
+                        <label for="Fingerprint">Fingerprint</label>
+                        <ValidationMessage For="@(()=>user.Fingerprint)" />
+                    </div>
+                </div>
+
+                <div class="form-group mb-2">
+                    @if (Sites.Any())
+                    {
+                        <div class="form-floating">
+                            <InputSelect @bind-Value="user.SiteId" class="form-control border-1 border-black" id="SiteId">
+                                <option value="0">Select a site</option>
+                                @foreach (var site in Sites)
+                                {
+                                    <option value="@site.SiteId">@site.Name</option>
+                                }
+                            </InputSelect>
+                            <label for="SiteId">Site</label>
+                            <ValidationMessage For="@(() => user.SiteId)" />
+                        </div>
+                    }
+                </div>
+                <div class="form-group mb-2">
+                    @if (Departments.Any())
+                    {
+                        <div class="form-floating">
+                            <InputSelect @bind-Value="user.DepartmentId" class="form-control border-1 border-black" id="DepartmentId">
+                                <option value="0">Select a Department</option>
+                                @foreach (var department in Departments)
+                                {
+                                    <option value="@department.DepartmentId">@department.Name</option>
+                                }
+                            </InputSelect>
+                            <label for="DepartmentId">Department</label>
+                            <ValidationMessage For="@(() => user.DepartmentId)" />
+                        </div>
+                    }
+                </div>
+                <!-- Brand and Model Version (In One Line) -->
+
+
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="user.FirstName" class="form-control border-1 border-black" id="FirstName" />
+                        <label for="FirstName">First Name</label>
+                        <ValidationMessage For="@(()=>user.FirstName)" />
+                    </div>
+                </div>
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="user.LastName" class="form-control border-1 border-black" id="LastName" />
+                        <label for="LastName">Last Name</label>
+                        <ValidationMessage For="@(()=>user.LastName)" />
+                    </div>
+                </div>
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="user.Phone" class="form-control border-1 border-black" id="Phone" />
+                        <label for="Phone">Phone</label>
+                        <ValidationMessage For="@(()=>user.Phone)" />
+                    </div>
+                </div>
+
+                <!-- Purchase Date and Expiry Date (In One Line) -->
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="user.Email" class="form-control border-1 border-black" id="Email" />
+                        <label for="Email">Email</label>
+                        <ValidationMessage For="@(()=>user.Email)" />
+                    </div>
+                </div>
+
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="user.JobTitle" class="form-control border-1 border-black" id="JobTitle" />
+                        <label for="JobTitle">Job Title</label>
+                        <ValidationMessage For="@(()=>user.JobTitle)" />
+                    </div>
+                </div>
+
+                <div class="form-group position-relative mb-3">
+                    <div class="form-floating">
+                        <input type="text" class="form-control border-1 border-black"
+                               @oninput="SearchEmployees" value="@managername" />
+                        <label>Search About Manager in Employees</label>
+                    </div>
+                    @if (Users.Any())
+                    {
+                        <div class="search-results">
+                            @foreach (var user in Users)
+                            {
+                                <div class="search-item" @onclick="() => SelectUser(user)">
+                                    <i class="bi bi-person-circle"></i> @(user.FirstName + " " + user.LastName) (@user.Fingerprint)
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+
+
+
+                <!-- Submit and Back Buttons -->
+                <div class="row mt-3 d-flex justify-content-end">
+                    <div class="col-auto">
+                        <button type="submit" class="btn  btn-success form-control" disabled="@isProcessing">@(user.UserId == 0 ? "Add New Employee" : "Update This Employee")</button>
+                    </div>
+                    <div class="col-auto">
+                        <a href="Employees" class="btn btn-secondary ">Back To List</a>
+                    </div>
+
+
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+
+
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; } = 0;
+    private bool isProcessing { get; set; } = false;
+    private IEnumerable<Site> Sites = new List<Site>();
+    private IEnumerable<Department> Departments = new List<Department>();
+    private IEnumerable<User> Users = new List<User>();
+    private User user { get; set; } = new User();
+    private string managername { get; set; } = string.Empty;
+    private string ExistPhoneError { get; set; } = string.Empty;
+    private string ExistEmailError { get; set; } = string.Empty;
+    private string ExistFingerprintError { get; set; } = string.Empty;
+    private bool exist { get; set; } = false;
+    private string searchTerm = string.Empty;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        await LoadTypes();
+        Sites = await _ISite.GetAllSitesAsync();
+        Departments = await _IDepartment.GetAllDepartmentsAsync();
+        isProcessing = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadTypes()
+    {
+        if (Id > 0)
+        {
+            user = await _IUser.GetUserAsync(Id);
+            if (user.ManagerId != null)
+            {
+                managername = user.Manager?.FirstName + " " + user.Manager?.LastName ?? "N/A";
+
+            }
+        }
+
+    }
+    private async Task UpsertUser()
+    {
+        ExistPhoneError = string.Empty;
+        ExistEmailError = string.Empty;
+        ExistFingerprintError = string.Empty;
+        isProcessing = true;
+        bool flag = false;
+        exist = false;
+
+        if (await _IUser.isPhoneExist(user.Phone, user.UserId))
+        {
+            ExistPhoneError = "This Phone Number is Already Exist";
+            isProcessing = false;
+            exist = true;
+        }
+        if (await _IUser.isEmailExist(user.Email, user.UserId))
+        {
+            ExistEmailError = "This Email is Already Exist";
+            isProcessing = false;
+            exist = true;
+        }
+        if (await _IUser.isFingerPrintExist(user.Fingerprint, user.UserId))
+        {
+            ExistFingerprintError = "This Fingerprint is Already Exist";
+            isProcessing = false;
+            exist = true;
+        }
+        if (exist)
+        {
+            return;
+        }
+
+
+        if (user.UserId == 0)
+        {
+            await _IUser.CreateUserAsync(user);
+            JS?.ToastrSuccess("Employee Added Successfully");
+            flag = true;
+
+        }
+        else
+        {
+            await _IUser.EditUserAsync(user);
+            JS?.ToastrSuccess("Employee Updated Successfully");
+            flag = true;
+        }
+        isProcessing = false;
+        _navigationManager.NavigateTo("Employees");
+        if (!flag)
+        {
+            JS?.ToastrError("Something Get Wrong Please Try Again !!");
+        }
+    }
+    private async Task SearchEmployees(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            Users = await _IUser.SearchUsersAsync(searchTerm);
+            StateHasChanged();
+        }
+        else
+        {
+            Users = new List<User>();
+
+        }
+    }
+
+    private void SelectUser(User user1)
+    {
+        user.ManagerId = user1.UserId;
+        Users = new List<User>();
+        searchTerm = string.Empty;
+        managername = user1.FirstName + " " + user.LastName;
+    }
+
+}
+
+

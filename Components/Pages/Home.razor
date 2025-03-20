@@ -1,0 +1,193 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject PdfService PdfService
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<PageTitle>Home</PageTitle>
+
+<div class="container d-flex flex-column justify-content-center align-items-center vh-100 text-center">
+    <!-- Animated Text -->
+
+    <!-- Login Button -->
+    <div class="mt-4">
+        <AuthorizeView>
+
+            <NotAuthorized>
+                <h2 id="animatedText" class="fw-bold text-white"></h2>
+                <a href="/Login" class="btn btn-primary btn-lg fw-bold">Login</a>
+                <style>
+                    body {
+                    background-image: url('/images/AccountPage.jpg'); /* Adjust the path */
+                    background-size: cover; /* Cover the full screen */
+                    background-position: center; /* Center the image */
+                    background-repeat: no-repeat; /* Prevent repetition */
+                    height: 100%;
+                    margin: 0;
+                    }
+
+                </style>
+
+            </NotAuthorized>
+            <Authorized>
+                <style>
+                    body {
+                        height: 100vh;
+                        margin: 0;
+                        background-color: #f8f9fa;
+                        font-family: 'Arial', sans-serif;
+                    }
+
+                
+
+                    .card {
+                        border: 1px solid black;
+                        border-radius: 10px;
+                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                        padding: 20px;
+                        margin-bottom: 20px;
+                        background: white;
+                    }
+
+                    .card-title {
+                        color: purple;
+                        font-weight: bold;
+                    }
+
+                    .btn-primary {
+                        background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+                        border: none;
+                        padding: 10px 20px;
+                        font-size: 18px;
+                        border-radius: 5px;
+                    }
+
+                        .btn-primary:hover {
+                            background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, purple 70%);
+                        }
+
+                    .feature-icon {
+                        font-size: 3rem;
+                        color: #28a745;
+                        margin-bottom: 10px;
+                    }
+
+                    .feature-link:hover .feature-icon {
+                        transform: scale(1.1);
+                        color: #218838;
+                    }
+
+                    .feature-link:hover h4 {
+                        color: #28a745;
+                    }
+                </style>
+
+
+                    <!-- Hero Section -->
+                    <div class="card text-center">
+                        <h1 class="card-title">Welcome To  Inventory Hub</h1>
+                        <p class="lead">Effortlessly manage your IT assets from procurement to retirement.</p>
+                        <a href="/Assets/Create" class="btn btn-primary btn-lg">Add New Asset</a>
+                    </div>
+
+                    <!-- Quick Links Section -->
+                    <div class="card">
+                        <h2 class="card-title">Quick Links</h2>
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <a href="/Assets" class="text-decoration-none feature-link ">
+                                    <div class="feature-icon">📦</div>
+                                    <h4>Inventory</h4>
+                                    <p class="text-black">View and manage all IT assets</p>
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="/Assignments" class="text-decoration-none feature-link">
+                                    <div class="feature-icon">🔗</div>
+                                    <h4>Assigned Assets</h4>
+                                <p class="text-black">Track assets currently assigned to users.</p>
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="/Maintenance" class="text-decoration-none feature-link">
+                                    <div class="feature-icon">🛠️</div>
+                                    <h4>Maintenance</h4>
+                                <p class="text-black">Monitor assets under maintenance.</p>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Key Features Section -->
+                    <div class="card">
+                        <h2 class="card-title">Key Features</h2>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="card bg-light mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Automated Tracking</h5>
+                                        <p class="card-text">Monitor your IT assets in real time with automated logging.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Asset Lifecycle</h5>
+                                        <p class="card-text">Track assets from purchase to retirement with ease.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Detailed Reports</h5>
+                                        <p class="card-text">Generate insightful reports for asset management decisions.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    <!-- Call-to-Action Section -->
+                    <div class="card text-center">
+                        <h2 class="card-title">Start Managing Your Inventory</h2>
+                        <p class="lead">Take control of your IT assets and optimize your inventory management today.</p>
+                    </div>
+                </div>
+
+            </Authorized>
+        </AuthorizeView>
+    </div>
+</div>
+
+<!-- JavaScript for Multi-line Typing Effect -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+    let lines = [
+    " Welcome to IT Inventory System.",
+    "Manage your assets efficiently.",
+    "Keep track of hardware, software, and more!"
+    ];
+    let index = -1;
+    let lineIndex = 0;
+    let speed = 100; // Typing speed
+
+    function typeText() {
+    if (lineIndex < lines.length) {
+    if (index < lines[lineIndex].length) {
+    document.getElementById("animatedText").innerHTML += lines[lineIndex].charAt(index);
+    index++;
+    setTimeout(typeText, speed);
+    } else {
+    document.getElementById("animatedText").innerHTML += "<br>"; // Move to next line
+    index = 0;
+    lineIndex++;
+    setTimeout(typeText, 500); // Pause before next line starts
+    }
+    }
+    }
+    typeText();
+    });
+</script>
+
+

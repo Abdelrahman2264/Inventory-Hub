@@ -1,0 +1,448 @@
+﻿@page "/LapTops/Create"
+@page "/LapTops/Update/{id:int}/{TypeId:int}"
+@page "/DeskTops/Create"
+@page "/DeskTops/Update/{id:int}/{TypeId:int}"
+@inject ISiteRepository _ISite
+@inject ILapTopRepository _ILapTop
+@inject IDeskTopRepository _IDeskTop
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogRepository _ILog
+@inject IAppUserRepository _IAppUser
+@inject ILogService _ILogService
+@inject NavigationManager _navigationManager
+@inject IAssetRepository _IAsset
+@inject IJSRuntime JS
+@inject ITypeRepository _IType
+@using InventorySystem.ViewModels
+@using Asset = InventorySystem.ViewModels.Asset;
+@using LapTops= InventorySystem.ViewModels.Laptop;
+@using Type = InventorySystem.ViewModels.Type;
+@using Site = InventorySystem.ViewModels.Site;
+@using DeskTops= InventorySystem.ViewModels.Desktop;
+@using Microsoft.AspNetCore.Authorization
+@rendermode InteractiveServer
+@attribute [Authorize (Roles ="Admin")]
+<PageTitle>Assets</PageTitle>
+
+
+
+
+@if (isProcessing)
+{
+    <div class="position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center">
+        <img src="/images/Loading.gif" alt="Loading..." />
+    </div>
+}
+else
+{
+    <div class="card shadow border-2 m-4">
+        <div class="card-header bg-black bg-gradient ml-1 pt-3 border-2 text-center">
+            <h2 class="text-white py-2">
+                @(device.TypeId == 0 ? "Create LapTop or DeskTop" :
+                    device.TypeId == 4 ? (device.AssetId == 0 ? "Create DeskTop" : "Update DeskTop") :
+                    (device.AssetId == 0 ? "Create LapTop" : "Update LapTop"))
+            </h2>
+        </div>
+        <div class="card-body p-4">
+            <EditForm Model="device" FormName="DepartmentUpsertForm" OnValidSubmit="UpsertAsset" class="flex-form">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <ValidationSummary></ValidationSummary>
+                @if (exist == true)
+                {
+                    <ul>
+                        @if (isSerialNumberExist)
+                        {
+                            <li class="text-danger">@SerialNumberErrorMessage</li>
+                        }
+
+
+                    </ul>
+                }
+
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <div class="form-floating">
+                            <InputText @bind-Value="device.SerialNumber" class="form-control border-1 border-black" id="SerialNumber" />
+                            <label for="SerialNumber">Serial Number</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <div class="form-floating">
+                            <InputSelect @bind-Value="device.TypeId" class="form-control border-1 border-black" id="TypeId">
+                                <option value="0">Select a Type</option>
+                                <option value="4">DeskTop</option>
+                                <option value="5">LapTop</option>
+                            </InputSelect>
+                            <label for="TypeId">Type</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+
+
+                    <div class="col-md-6 mb-2">
+                        <div class="form-floating">
+                            <InputText @bind-Value="device.OS" class="form-control border-1 border-black" id="OS" />
+                            <label for="OS">Operating System</label>
+                        </div>
+                    </div>
+
+                </div>
+                @if (Id == 0)
+                {
+                    <div class="row mt-3">
+                        <div class="col-md-6 mb-2">
+                            <div class="form-floating">
+                                <InputText @bind-Value="device.Brand" class="form-control border-1 border-black" id="Brand" />
+                                <label for="Brand">Brand</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <div class="form-floating">
+                                <InputText @bind-Value="device.ModelVersion" class="form-control border-1 border-black" id="ModelVersion" />
+                                <label for="ModelVersion">Model Version</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-md-6 mb-2">
+                            <div class="form-floating">
+                                <InputDate @bind-Value="device.PurchaseDate" class="form-control border-1 border-black" id="PurchaseDate" />
+                                <label for="PurchaseDate">Purchase Date</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <div class="form-floating">
+                                <InputDate @bind-Value="device.ExpiryDate" class="form-control border-1 border-black" id="ExpiryDate" />
+                                <label for="ExpiryDate">Expiry Date</label>
+                            </div>
+                        </div>
+                    </div>
+                }
+                <div class="row mt-3">
+                    <div class="col-md-6 mb-2">
+                        <div class="form-floating">
+                            <InputText @bind-Value="device.Ram" class="form-control border-1 border-black" id="Ram" />
+                            <label for="Ram">RAM</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <div class="form-floating">
+                            <InputText @bind-Value="device.Cpu" class="form-control border-1 border-black" id="Cpu" />
+                            <label for="Cpu">CPU</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6 mb-2">
+                        <div class="form-floating">
+                            <InputText @bind-Value="device.Gpu" class="form-control border-1 border-black" id="Gpu" />
+                            <label for="Gpu">GPU</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <div class="form-floating">
+                            <InputText @bind-Value="device.HardDisk" class="form-control border-1 border-black" id="HardDisk" />
+                            <label for="HardDisk">Hard Disk</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6 mb-2">
+                        <div class="form-floating">
+                            <InputText @bind-Value="device.MacEthernet" class="form-control border-1 border-black" id="MacEthernet" />
+                            <label for="MacEthernet">MAC Ethernet</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <div class="form-floating">
+                            <InputText @bind-Value="device.MacWifi" class="form-control border-1 border-black" id="MacWifi" />
+                            <label for="MacWifi">MAC Wi-Fi</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    @if (device.TypeId != 4)
+                    {
+                        <div class="col-md-6 mb-2">
+                            <div class="form-floating">
+                                <InputText @bind-Value="device.ScreenSize" class="form-control border-1 border-black" id="ScreenSize" />
+                                <label for="ScreenSize">Screen Size</label>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="col-md-6">
+                        <div class="form-floating mb-2">
+                            <InputText @bind-Value="device.Description" class="form-control border-1 border-black" id="Description" />
+                            <label for="Description">Description</label>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <div class="row mt-3 d-flex justify-content-end">
+                    <div class="col-auto">
+                        <button type="submit" class="btn  btn-success form-control" disabled="@isProcessing">
+                            @(device.AssetId == 0 ? "Create" : "Update") @(device.TypeId == 4 ? "DeskTop" : "LapTop")
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <a href="Assets" class="btn btn-secondary   form-control">Back To List</a>
+                    </div>
+                </div>
+
+
+
+            </EditForm>
+        </div>
+    </div>
+}
+@code {
+
+    [SupplyParameterFromForm]
+    private new DeskLapModel device { get; set; } = new DeskLapModel();
+    [Parameter]
+    public int Id { get; set; } = 0;
+    [Parameter]
+    public int TypeId { get; set; } = 0;
+    private bool isProcessing { get; set; } = false;
+    private Asset Assets { get; set; } = new Asset();
+    private LapTops LapTop { get; set; } = new LapTops();
+    private DeskTops DeskTop { get; set; } = new DeskTops();
+    private Asset asset { get; set; } = new Asset();
+    private DeskLapModel Temp { get; set; } = new DeskLapModel();
+    private IEnumerable<Site> Sites = new List<Site>();
+    private Task<AuthenticationState> Authroize { get; set; }
+    private LogsHistory logsHistory = new LogsHistory();
+    private string SerialNumberErrorMessage { get; set; } = string.Empty;
+    private bool isSerialNumberExist { get; set; } = false;
+
+
+    private bool exist { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        await loadAsset();
+        Sites = await _ISite.GetAllSitesAsync();
+        isProcessing = false;
+        Authroize = AuthenticationStateProvider.GetAuthenticationStateAsync();
+        StateHasChanged();
+    }
+
+    private async Task loadAsset()
+    {
+        if (Id > 0 && TypeId == 5)
+        {
+
+            LapTop = await _ILapTop.GetLapTopAsync(Id);
+            asset = await _IAsset.GetAssetAsync(LapTop.AssetId);
+            device = new DeskLapModel
+                {
+                    AssetId = LapTop.AssetId,
+                    Ram = LapTop.Ram,
+                    Cpu = LapTop.Cpu,
+                    Gpu = LapTop.Gpu,
+                    HardDisk = LapTop.HardDisk,
+                    ScreenSize = LapTop.ScreenSize,
+                    MacWifi = LapTop.MacWifi,
+                    MacEthernet = LapTop.MacEthernet,
+                    Label = LapTop.Label,
+                    SerialNumber = asset.SerialNumber,
+                    Brand = asset.Brand,
+                    ModelVersion = asset.ModelVersion,
+                    PurchaseDate = asset.PurchaseDate,
+                    ExpiryDate = asset.ExpiryDate,
+                    Description = asset.Description,
+                    TypeId = asset.TypeId,
+                    OS = LapTop.OS
+                };
+
+        }
+        else if (Id > 0 && TypeId == 4)
+        {
+            DeskTop = await _IDeskTop.GetDeskTopAsync(Id);
+            asset = await _IAsset.GetAssetAsync(DeskTop.AssetId);
+
+            device = new DeskLapModel
+                {
+                    AssetId = DeskTop.AssetId,
+                    Ram = DeskTop.Ram,
+                    Cpu = DeskTop.Cpu,
+                    Gpu = DeskTop.Gpu,
+                    HardDisk = DeskTop.HardDisk,
+                    MacWifi = DeskTop.MacWifi ?? "N/A",
+                    MacEthernet = DeskTop.MacEthernet,
+                    Label = DeskTop.Label,
+                    SerialNumber = asset.SerialNumber,
+                    Brand = asset.Brand,
+                    ModelVersion = asset.ModelVersion,
+                    PurchaseDate = asset.PurchaseDate,
+                    ExpiryDate = asset.ExpiryDate,
+                    Description = asset.Description,
+                    TypeId = asset.TypeId,
+                    OS = DeskTop.OS
+                };
+        }
+        Temp = device;
+    }
+    private async Task UpsertAsset()
+    {
+        isProcessing = true;
+        SerialNumberErrorMessage = string.Empty;
+        isSerialNumberExist = false;
+
+
+        if (isSerialNumberExist)
+        {
+            SerialNumberErrorMessage = "This Serial Number Is Already Exist";
+            isProcessing = false;
+            exist = true;
+        }
+
+
+        if (exist == true)
+        {
+            return;
+        }
+        bool flag = false;
+        if (device.AssetId == 0)
+        {
+            Assets = new Asset
+                {
+                    SerialNumber = device.SerialNumber,
+                    TypeId = device.TypeId,
+                    PurchaseDate = device.PurchaseDate,
+                    ExpiryDate = device.ExpiryDate,
+                    ModelVersion = device.ModelVersion,
+                    Brand = device.Brand,
+                    Description = device.Description
+
+                };
+            await _IAsset.CreateAssetAsync(Assets);
+            var temp = await _IAsset.GetAllAssetAsync();
+            temp = temp.Where(u => u.SerialNumber == device.SerialNumber).ToList();
+            if (device.TypeId == 5)
+            {
+                LapTop = new LapTops
+                    {
+                        Ram = device.Ram,
+                        Cpu = device.Cpu,
+                        Gpu = device.Gpu,
+                        MacWifi = device.MacWifi,
+                        MacEthernet = device.MacEthernet,
+                        HardDisk = device.HardDisk,
+                        ScreenSize = device.ScreenSize,
+                        Label = device.Label,
+                        AssetId = temp.First().AssetId
+                    };
+                await _ILapTop.CreateLapTopAsync(LapTop);
+                var TempLap = await _IAsset.GetAssetAsyncSerial(device.SerialNumber);
+                await _ILogService.CreateLogAsync(TempLap.AssetId, "Add a New LapTop To The System", "Assets", TempLap.Type.Name);
+                JS?.ToastrSuccess("Asset LapTop Created Successfully");
+                isProcessing = false;
+                _navigationManager.NavigateTo("LapTops");
+                flag = true;
+            }
+            else
+            {
+                DeskTop = new DeskTops
+                    {
+                        Ram = device.Ram,
+                        Cpu = device.Cpu,
+                        Gpu = device.Gpu,
+                        MacWifi = device.MacWifi,
+                        MacEthernet = device.MacEthernet,
+                        HardDisk = device.HardDisk,
+                        Label = device.Label,
+                        AssetId = temp.First().AssetId
+                    };
+                await _IDeskTop.CreateDeskTopAsync(DeskTop);
+                var Tempdesk = await _IAsset.GetAssetAsyncSerial(device.SerialNumber);
+                await _ILogService.CreateLogAsync(Tempdesk.AssetId, "Add a New DeskTop To The System", "Assets", Tempdesk.Type.Name);
+                JS?.ToastrSuccess("Asset DeskTop Created Successfully");
+                flag = true;
+                isProcessing = false;
+                _navigationManager.NavigateTo("DeskTops");
+            }
+        }
+        else
+        {
+            Assets = new Asset
+                {
+                    SerialNumber = device.SerialNumber,
+                    TypeId = device.TypeId,
+                    PurchaseDate = device.PurchaseDate,
+                    ExpiryDate = device.ExpiryDate,
+                    ModelVersion = device.ModelVersion,
+                    Brand = device.Brand,
+                    Description = device.Description,
+                    AssetId = device.AssetId
+                };
+            await _IAsset.EditAssetAsync(Assets);
+            var temp = await _IAsset.GetAssetAsync(device.AssetId);
+            if (device.TypeId == 5)
+            {
+                LapTop = new LapTops
+                    {
+                        Ram = device.Ram,
+                        Cpu = device.Cpu,
+                        Gpu = device.Gpu,
+                        MacWifi = device.MacWifi,
+                        MacEthernet = device.MacEthernet,
+                        HardDisk = device.HardDisk,
+                        ScreenSize = device.ScreenSize,
+                        Label = device.Label,
+                        AssetId = temp.AssetId,
+                        OS = device.OS
+
+                    };
+
+                await _ILapTop.EditLapTopAsync(LapTop);
+                var Tempdesk = await _IAsset.GetAssetAsyncSerial(device.SerialNumber);
+                await _ILogService.CreateLogAsync(Tempdesk.AssetId, "Edit and Update a LapTop In The System", "Assets", Tempdesk.Type.Name);
+                flag = true;
+
+                JS?.ToastrSuccess("Asset LapTop Updated Successfully");
+                isProcessing = false;
+                _navigationManager.NavigateTo("LapTops");
+            }
+            else
+            {
+                DeskTop = new DeskTops
+                    {
+                        Ram = device.Ram,
+                        Cpu = device.Cpu,
+                        Gpu = device.Gpu,
+                        MacWifi = device.MacWifi,
+                        MacEthernet = device.MacEthernet,
+                        HardDisk = device.HardDisk,
+                        Label = device.Label,
+                        AssetId = temp.AssetId,
+                        OS = device.OS
+                    };
+
+                await _IDeskTop.EditDeskTopAsync(DeskTop);
+                flag = true;
+                var Tempdesk = await _IAsset.GetAssetAsyncSerial(device.SerialNumber);
+                await _ILogService.CreateLogAsync(Tempdesk.AssetId, "Edit and Update DeskTop In The System", "Assets", Tempdesk.Type.Name);
+                JS?.ToastrSuccess("Asset DeskTop Updated Successfully");
+                isProcessing = false;
+                _navigationManager.NavigateTo("DeskTops");
+            }
+
+
+        }
+
+        if (!flag)
+        {
+            JS?.ToastrError("Something Get Wrong Please Try Again !!");
+        }
+    }
+}
+
+

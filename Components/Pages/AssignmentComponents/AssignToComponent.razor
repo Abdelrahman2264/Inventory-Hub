@@ -1,0 +1,308 @@
+﻿@page "/Assign/Create"
+@inject IUserRepository _IUser
+@inject IDepartmentRepository _IDepartment
+@inject ISiteRepository _ISite
+@inject IAssetRepository _IAsset
+@inject IUserRepository UserRepository
+@inject ILogService _ILogService
+@inject IJSRuntime JS
+@inject ITypeRepository _IType
+@inject IAssignmentRepository _IAssign
+@inject IDeskTopRepository _IDesk
+@inject ILapTopRepository _ILap
+@inject PdfService PdfService
+@inject NavigationManager _navigationManager
+@using Assign = InventorySystem.ViewModels.Assignment
+@using User = InventorySystem.ViewModels.User
+@using Asset = InventorySystem.ViewModels.Asset
+@using Site = InventorySystem.ViewModels.Site
+@using Department = InventorySystem.ViewModels.Department
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+<PageTitle>Assets</PageTitle>
+
+@if (isProcessing)
+{
+    <div class="position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center">
+        <img src="/images/loading.gif" alt="Loading" />
+    </div>
+}
+else
+{
+    <div class="card shadow border-2 m-4">
+        <div class="card-header bg-dark bg-gradient pt-3 border-2 text-center">
+            <h2 class="text-white py-2">Assign Device</h2>
+        </div>
+        <div class="card-body p-4">
+            <EditForm Model="assign" OnValidSubmit="Assign" class="flex-form">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <ValidationSummary></ValidationSummary>
+                <!-- Grid for User & Asset Sections -->
+                <div class="row g-3">
+                    <!-- User Search Section -->
+                    <div class="col-md-6 col-sm-12">
+                        <div class="form-group position-relative">
+                            <div class="form-floating">
+                                <input required type="text" class="form-control border-1 border-black"
+                                       @oninput="SearchEmployees"
+                                       value="@(SelectedUser != null ? $"{SelectedUser.FirstName+" "+SelectedUser.LastName} {SelectedUser.Fingerprint}" : "")" />
+                                <label>Search About User in Employees</label>
+                            </div>
+                            @if (Users.Any())
+                            {
+                                <div class="search-results">
+                                    @foreach (var user in Users)
+                                    {
+                                        <div class="search-item" @onclick="() => SelectUser(user)">
+                                            <i class="bi bi-person-circle"></i> @(user.FirstName + " " + user.LastName) (@user.Fingerprint)
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        @if (SelectedUser == null && userValidationMessage)
+                        {
+                            <div class="text-danger">Please select a user.</div>
+                        }
+                        @if (SelectedUser != null)
+                        {
+                            <div class="card mt-3">
+                                <div class="card-header bg-primary text-white">User Details</div>
+                                <div class="card-body">
+                                    <p><strong>Full Name:</strong> @(SelectedUser.FirstName + " " + SelectedUser.LastName)</p>
+                                    <p><strong>Email:</strong> @SelectedUser.Email</p>
+                                    <p><strong>Phone:</strong> @SelectedUser.Phone</p>
+                                    <p><strong>Job Title:</strong> @SelectedUser.JobTitle</p>
+                                    <p><strong>Department:</strong> @(SelectedUser.Department?.Name ?? "N/A")</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Asset Search Section -->
+                    <div class="col-md-6 col-sm-12">
+                        <div class="form-group position-relative">
+                            <div class="form-floating">
+                                <input required type="text" class="form-control border-1 border-black"
+                                       @oninput="SearchAssets"
+                                       value="@(SelectedAsset != null ? $"{SelectedAsset.Type?.Name} {SelectedAsset.Brand} {SelectedAsset.ModelVersion} {SelectedAsset.SerialNumber}" : "")" />
+                                <label>Search About Serial Number in Assets</label>
+                            </div>
+                            @if (Assets.Any())
+                            {
+                                <div class="search-results">
+                                    @foreach (var asset in Assets)
+                                    {
+                                        <div class="search-item" @onclick="() => SelectAsset(asset)">
+                                            <i class="bi bi-pc-display"></i> @asset.Type?.Name @asset.Brand @asset.ModelVersion (@asset.SerialNumber)
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        @if (SelectedAsset == null && assetValidationMessage)
+                        {
+                            <div class="text-danger">Please select an asset.</div>
+                        }
+                        @if (SelectedAsset != null)
+                        {
+                            <div class="card mt-3 mb-3">
+                                <div class="card-header bg-secondary text-white">Device Details</div>
+                                <div class="card-body">
+                                    <p><strong>Type:</strong> @SelectedAsset.Type.Name</p>
+                                    <p><strong>Serial Number:</strong> @SelectedAsset.SerialNumber</p>
+                                    <p><strong>Brand:</strong> @(SelectedAsset.Brand ?? "N/A")</p>
+                                    <p><strong>Model:</strong> @SelectedAsset.ModelVersion</p>
+                                    <p><strong>Description:</strong> @SelectedAsset.Description</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="row mt-3 d-flex justify-content-end">
+                    <div class="col-auto">
+
+                        <button type="submit" class="btn btn-success form-control">Assign Device</button>
+                    </div>
+
+                    <div class="col-auto">
+                        <a href="Assign" class="btn btn-secondary ">Back To List</a>
+
+                    </div>
+
+
+                </div>
+
+            </EditForm>
+        </div>
+    </div>
+}
+
+
+@code {
+    private string searchTerm = string.Empty;
+    private string searchAsset = string.Empty;
+    private User? SelectedUser;
+    private Asset? SelectedAsset;
+    private bool isProcessing { get; set; } = false;
+    private bool userValidationMessage { get; set; } = false;
+    private bool assetValidationMessage { get; set; } = false;
+    private IEnumerable<User> Users = new List<User>();
+    private IEnumerable<Asset> Assets = new List<Asset>();
+    private Assign assign { get; set; } = new Assign();
+
+    private async Task SearchEmployees(ChangeEventArgs e)
+    {
+        string searchValue = e.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(searchValue))
+        {
+            Users = (await UserRepository.SearchUsersAsync(searchValue)).ToList();
+        }
+        else
+        {
+            Users = new List<User>();
+        }
+    }
+
+    private void SelectUser(User user)
+    {
+        SelectedUser = user;
+        assign.UserId = user.UserId;
+        Users = new List<User>();
+        userValidationMessage = false; // Reset validation message when a user is selected
+    }
+
+    private void SelectAsset(Asset asset)
+    {
+        SelectedAsset = asset;
+        assign.AssetId = asset.AssetId;
+        Assets = new List<Asset>();
+        assetValidationMessage = false; // Reset validation message when an asset is selected
+    }
+
+    private async Task SearchAssets(ChangeEventArgs e)
+    {
+        searchAsset = e.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(searchAsset))
+        {
+            Assets = await _IAsset.SearchAssetAsync(searchAsset);
+            Assets = Assets.Where(u => u.Status.ToLower() == "Stock".ToLower());
+            StateHasChanged();
+        }
+        else
+        {
+            Assets = new List<Asset>();
+        }
+    }
+
+    private async Task Assign()
+    {
+        // Validate user and asset selection
+        userValidationMessage = SelectedUser == null;
+        assetValidationMessage = SelectedAsset == null;
+
+        if (userValidationMessage || assetValidationMessage)
+        {
+            // Show validation messages and prevent submission
+            return;
+        }
+
+        isProcessing = true;
+        bool flag = false;
+        var temp = await _IAsset.GetAssetAsync(assign.AssetId);
+        var Type = await _IType.getType(temp.TypeId);
+
+        if (assign != null)
+        {
+            await _IAssign.AssignToAsync(assign);
+            var Details = _IAssign.GetByIdAsync(assign.AssetId);
+            await _ILogService.CreateLogAsync(assign.AssetId, $"Asset Assigned To User", "Assignment", Type.Name, Details.UserId);
+            flag = true;
+            JS?.ToastrSuccess("Device Assigned Successfully");
+            if (Type.Name.ToLower() == "DeskTop".ToLower())
+            {
+                var DeskTop = await _IDesk.GetDeskTopAsync(assign.AssetId);
+                var user = await _IUser.GetUserAsync(assign.UserId);
+                var desklap = new DeskLapModel
+                    {
+                        AssetId = DeskTop.AssetId,
+                        Ram = DeskTop.Ram,
+                        Cpu = DeskTop.Cpu,
+                        Gpu = DeskTop.Gpu,
+                        HardDisk = DeskTop.HardDisk,
+                        MacWifi = DeskTop.MacWifi ?? "N/A",
+                        MacEthernet = DeskTop.MacEthernet,
+                        Label = DeskTop.Label,
+                        SerialNumber = DeskTop.Asset.SerialNumber,
+                        Brand = DeskTop.Asset.Brand,
+                        ModelVersion = DeskTop.Asset.ModelVersion,
+                        PurchaseDate = DeskTop.Asset.PurchaseDate,
+                        ExpiryDate = DeskTop.Asset.ExpiryDate,
+                        Description = DeskTop.Asset.Description,
+                        TypeId = DeskTop.Asset.TypeId,
+                        OS = DeskTop.OS,
+                        ScreenSize = "N/A",
+                        DeviceName = DeskTop.DeviceName
+
+                    };
+                bool isUsed = await _IAssign.isUsed(desklap.AssetId);
+                var pdfBytes = PdfService.GenerateDeliveryPdf(user, desklap, Details.AssignmentId, Type.Name, isUsed, Details.AssignedDate.ToString());
+
+                // Convert the PDF bytes to a base64 string
+                var pdfBase64 = Convert.ToBase64String(pdfBytes);
+
+                // Open the PDF in a new window and print it
+                await JS.InvokeVoidAsync("downloadPdf", pdfBase64, user.FirstName + " " + user.LastName + " " + Type.Name);
+
+                await JS.InvokeVoidAsync("printPdf", pdfBase64);
+
+            }
+            if (Type.Name.ToLower() == "LapTop".ToLower())
+            {
+                var LapTop = await _ILap.GetLapTopAsync(assign.AssetId);
+                var user = await _IUser.GetUserAsync(assign.UserId);
+                var desklap = new DeskLapModel
+                    {
+
+                        AssetId = LapTop.AssetId,
+                        Ram = LapTop.Ram,
+                        Cpu = LapTop.Cpu,
+                        Gpu = LapTop.Gpu,
+                        HardDisk = LapTop.HardDisk,
+                        MacWifi = LapTop.MacWifi,
+                        MacEthernet = LapTop.MacEthernet,
+                        Label = LapTop.Label,
+                        SerialNumber = LapTop.Asset.SerialNumber,
+                        Brand = LapTop.Asset.Brand,
+                        ModelVersion = LapTop.Asset.ModelVersion,
+                        PurchaseDate = LapTop.Asset.PurchaseDate,
+                        ExpiryDate = LapTop.Asset.ExpiryDate,
+                        Description = LapTop.Asset.Description,
+                        TypeId = LapTop.Asset.TypeId,
+                        OS = LapTop.OS,
+                        ScreenSize = LapTop.ScreenSize,
+                        DeviceName = LapTop.DeviceName,
+
+                    };
+                bool isUsed = await _IAssign.isUsed(desklap.AssetId);
+                var pdfBytes = PdfService.GenerateDeliveryPdf(user, desklap, Details.AssignmentId, Type.Name, isUsed, Details.AssignedDate.ToString());
+
+                // Convert the PDF bytes to a base64 string
+                var pdfBase64 = Convert.ToBase64String(pdfBytes);
+
+                // Open the PDF in a new window and print it
+                await JS.InvokeVoidAsync("downloadPdf", pdfBase64, user.FirstName + " " + user.LastName + " " + Type.Name);
+
+                await JS.InvokeVoidAsync("printPdf", pdfBase64);
+            }
+        }
+        isProcessing = false;
+        _navigationManager.NavigateTo("Assignments");
+        if (!flag)
+        {
+            JS?.ToastrError("Something Went Wrong. Please Try Again !!");
+        }
+    }
+}
+
+

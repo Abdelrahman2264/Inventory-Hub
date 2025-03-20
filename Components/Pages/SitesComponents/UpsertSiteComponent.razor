@@ -1,0 +1,150 @@
+﻿@page "/Sites/Create"
+@page "/Sites/Update/{id:int}"
+@inject ISiteRepository _ISite
+@inject NavigationManager _navigationManager
+@inject IJSRuntime JS
+@using Site = InventorySystem.ViewModels.Site;
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+<PageTitle>Sites</PageTitle>
+
+@if (isProcessing)
+{
+    <div class=" position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center ">
+        <img src="/images/Loading.gif" alt="Loading..." />
+    </div>
+}
+else
+{
+    <div class="card shadow  m-4 ">
+        <div class="card-header bg-dark bg-gradient ml-1 pt-3 ">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2 class="text-white py-2">@(Sites.SiteId == 0 ? "Create Site Location" : "Update Site Location")</h2>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-4">
+
+            <EditForm Model="Sites" FormName="SiteUpsertForm" OnValidSubmit="UpsertSite">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                @if (exist)
+                {
+                    <ul>
+                        @if (isSiteExist)
+                        {
+
+                            <li class="text-danger">@SiteExistErrorMessage</li>
+
+                        } @if (isSiteCodeExist)
+                        {
+
+                            <li class="text-danger">@SiteCodeExistErrorMessage</li>
+
+                        }
+                    </ul>
+                }
+                <div class="form-floating py-3 col-12">
+                    <InputText @bind-Value="Sites.Name" class="form-control border-2" id="Name" />
+                    <label for="Name">Name</label>
+                    <ValidationMessage For="@(()=>Sites.Name)" />
+                </div>
+                <div class="form-floating py-3 col-12">
+                    <InputText @bind-Value="Sites.SiteCode" class="form-control border-2" id="SiteCode" />
+                    <label for="SiteCode">Site Code</label>
+                    <ValidationMessage For="@(()=>Sites.SiteCode)" />
+                </div>
+                <div class="row mt-3 d-flex justify-content-end">
+                    <div class="col-auto">
+                        <button type="submit" class="btn  btn-success form-control" disabled="@isProcessing">@(Sites.SiteId == 0 ? "Create New Site" : "Update Site")</button>
+
+                    </div>
+                    <div class="col-auto">
+                        <a href="Sites" class="btn btn-secondary  form-control">Back To List</a>
+                    </div>
+
+                </div>
+
+            </EditForm>
+        </div>
+    </div>
+}
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    [SupplyParameterFromForm]
+    private Site Sites { get; set; } = new Site();
+    private bool isProcessing { get; set; } = false;
+
+
+    private string SiteExistErrorMessage { get; set; } = string.Empty;
+    private bool isSiteExist { get; set; } = false;
+    private string SiteCodeExistErrorMessage { get; set; } = string.Empty;
+    private bool isSiteCodeExist { get; set; } = false;
+    private bool exist { get; set; } = false;
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        await LoadType();
+        isProcessing = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadType()
+    {
+        if (Id > 0)
+        {
+            Sites = await _ISite.GetSiteAsync(Id);
+        }
+    }
+
+    private async Task UpsertSite()
+    {
+        SiteExistErrorMessage = string.Empty;
+        isSiteExist = false;
+        SiteCodeExistErrorMessage = string.Empty;
+        isSiteCodeExist = false;
+        exist = false;
+        bool flag = false;
+        isSiteExist = await _ISite.CheckIfSiteExist(Sites.Name, Sites.SiteId);
+        isSiteCodeExist = await _ISite.CheckIfSiteCodeExist(Sites.SiteCode, Sites.SiteId);
+        if (isSiteExist)
+        {
+            SiteExistErrorMessage = "This Site Is Already Exist !";
+            isProcessing = false;
+            exist = true;
+        }
+        if (isSiteCodeExist)
+        {
+            SiteExistErrorMessage = "This Site Is Already Exist !";
+            isProcessing = false;
+            exist = true;
+        }
+        if (exist)
+        {
+            return;
+        }
+        isProcessing = true;
+
+        if (Sites.SiteId == 0)
+        {
+            await _ISite.CreateSiteAsync(Sites);
+            JS?.ToastrSuccess("Site Location Created Successfully");
+            flag = true;
+        }
+        else
+        {
+            await _ISite.EditSiteAsync(Sites);
+            JS?.ToastrSuccess("Site Location Updated Created Successfully");
+            flag = true;
+        }
+        isProcessing = false;
+        _navigationManager.NavigateTo("Sites");
+        if (!flag)
+        {
+            JS?.ToastrError("Something Get Wrong Please Try Again !!");
+        }
+    }
+}
+
+

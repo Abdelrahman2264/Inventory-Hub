@@ -1,0 +1,213 @@
+﻿@page "/Assets/Create"
+@page "/Assets/Update/{id:int}"
+@inject ISiteRepository _ISite
+@inject NavigationManager _navigationManager
+@inject IAssetRepository _IAsset
+@inject IJSRuntime JS
+@inject ITypeRepository _IType
+@inject ILogRepository _ILog
+@inject IAppUserRepository _IAppUser
+@inject ILogService _LogService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using Asset = InventorySystem.ViewModels.Asset;
+@using InventorySystem.ViewModels
+@using Type = InventorySystem.ViewModels.Type;
+@using Site = InventorySystem.ViewModels.Site;
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+<PageTitle>Assets</PageTitle>
+
+
+
+@if (isProcessing)
+{
+    <div class=" position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center ">
+        <img src="/images/Loading.gif" alt="Loading..." />
+    </div>
+}
+else
+{
+    <div class="card shadow  m-4 ">
+        <div class="card-header bg-dark bg-gradient ml-1 pt-3 ">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2 class="text-white py-2">@(Asset.AssetId == 0 ? "Create Asset" : "Update Asset")</h2>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-4">
+
+            <EditForm Model="Assets" FormName="DepartmentUpsertForm" OnValidSubmit="UpsertAsset" class="flex-form">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <ValidationSummary></ValidationSummary>
+                @if (isSerialNumberExist)
+                {
+                    <ul>
+                        <li class="text-danger">@SerialNumberErrorMessage</li>
+                    </ul>
+                }
+                <!-- Serial Number (Single Line) -->
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="Asset.SerialNumber" class="form-control border-1 border-black" id="SerialNumber" />
+                        <label for="SerialNumber">Serial Number</label>
+                        <ValidationMessage For="@(()=>Asset.SerialNumber)" />
+                      
+                    </div>
+                </div>
+
+                <!-- Type and Site (In One Line) -->
+                <div class="form-group mb-2">
+                    @if (Types.Any())
+                    {
+                        <div class="form-floating">
+                            <InputSelect @bind-Value="Asset.TypeId" class="form-control border-1 border-black" id="TypeId">
+                                <option value="0">Select a type</option>
+                                @foreach (var type in Types)
+                                {
+                                    <option value="@type.TypeId">@type.Name</option>
+                                }
+                            </InputSelect>
+                            <label for="TypeId">Type</label>
+                            <ValidationMessage For="@(() => Asset.TypeId)" />
+                        </div>
+                    }
+                </div>
+              
+                <!-- Brand and Model Version (In One Line) -->
+
+
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="Asset.Brand" class="form-control border-1 border-black" id="Brand" />
+                        <label for="Brand">Brand</label>
+                        <ValidationMessage For="@(()=>Asset.Brand)" />
+                    </div>
+                </div>
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="Asset.ModelVersion" class="form-control border-1 border-black" id="ModelVersion" />
+                        <label for="ModelVersion">Model Version</label>
+                        <ValidationMessage For="@(()=>Asset.ModelVersion)" />
+                    </div>
+                </div>
+
+                <!-- Purchase Date and Expiry Date (In One Line) -->
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputDate @bind-Value="Asset.PurchaseDate" class="form-control border-1 border-black" id="PurchaseDate" />
+                        <label for="PurchaseDate">Purchase Date</label>
+                        <ValidationMessage For="@(()=>Asset.PurchaseDate)" />
+                    </div>
+                </div>
+
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputDate @bind-Value="Asset.ExpiryDate" class="form-control border-1 border-black" id="ExpiryDate" />
+                        <label for="ExpiryDate">Expiry Date</label>
+                        <ValidationMessage For="@(()=>Asset.ExpiryDate)" />
+                    </div>
+                </div>
+
+                <!-- Description (Single Line) -->
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="Asset.Description" class="form-control border-1 border-black" id="Description" />
+                        <label for="Description">Description</label>
+                        <ValidationMessage For="@(()=>Asset.Description)" />
+                    </div>
+                </div>
+
+                <div class="row mt-3 d-flex justify-content-end">
+                    <div class="col-auto">
+
+                        <button type="submit" class="btn btn-success form-control" disabled="@isProcessing">@(Asset.AssetId == 0 ? "Add New Asset" : "Update This Asset")</button>
+                    </div>
+
+                    <div class="col-auto">
+                        <a href="Assets" class="btn btn-secondary ">Back To List</a>
+
+                    </div>
+
+
+                </div>
+
+            </EditForm>
+        </div>
+    </div>
+}
+@code {
+
+
+    [SupplyParameterFromForm]
+    private new Asset Asset { get; set; } = new Asset();
+    [Parameter]
+    public int Id { get; set; } = 0;
+    private string SerialNumberErrorMessage { get; set; } = string.Empty;
+    private bool isSerialNumberExist { get; set; } = false;
+    private bool isProcessing { get; set; } = false;
+    private IEnumerable<Type> Types = new List<Type>();
+    private IEnumerable<Site> Sites = new List<Site>();
+    private int selectedTypeId { get; set; } = 0;
+    private string selectedTypeName { get; set; } = string.Empty;
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        await loadAsset();
+        Sites = await _ISite.GetAllSitesAsync();
+        Types = await _IType.GetAll();
+        Types = Types.Where(x => x.Name.ToLower() != "LapTop".ToLower() && x.Name.ToLower() != "DeskTop".ToLower()).ToList();
+        isProcessing = false;
+        StateHasChanged();
+    }
+
+
+    private async Task loadAsset()
+    {
+        if (Id > 0)
+        {
+            Asset = await _IAsset.GetAssetAsync(Id);
+        }
+    }
+    private async Task UpsertAsset()
+    {
+        SerialNumberErrorMessage = "";
+        isSerialNumberExist = false;
+        isSerialNumberExist = await _IAsset.isSerialNumberExist(Asset.SerialNumber , Asset.AssetId);
+        if (isSerialNumberExist)
+        {
+            SerialNumberErrorMessage = "This Serial Number Is Already Exist" ;
+            isProcessing = false;
+            return;
+        }
+
+        isProcessing = true;
+        bool flag = false;
+        if (Asset.AssetId == 0)
+        {
+            await _IAsset.CreateAssetAsync(Asset);
+            var temp = await _IAsset.GetAssetAsyncSerial(Asset.SerialNumber);
+            await _LogService.CreateLogAsync(temp.AssetId, "Create a new Asset in The System", "Assets", temp.Type.Name);
+            JS?.ToastrSuccess("Asset Created Successfully");
+            flag = true;
+        }
+        else
+        {
+            await _IAsset.EditAssetAsync(Asset);
+            var temp = await _IAsset.GetAssetAsyncSerial(Asset.SerialNumber);
+            await _LogService.CreateLogAsync(temp.AssetId, "Edit and Update  Asset in The System", "Assets", temp.Type.Name);
+            await JS.InvokeVoidAsync("ShowToastr", "success","Asset Updated Successfully");
+            flag = true;
+        }
+        isProcessing = false;
+        _navigationManager.NavigateTo("Assets");
+        if (!flag)
+        {
+            JS?.ToastrError("Something Get Wrong Please Try Again !!");
+        }
+
+    }
+}
+
+
+

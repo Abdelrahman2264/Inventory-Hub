@@ -1,0 +1,29 @@
+﻿@inject IJSRuntime JS
+<div class="circle-container">
+    <div class="circle">
+        <span class="inside-text">@InsideText</span>
+        <span id="counter-@Id" class="number">0</span>
+    </div>
+    <span class="outside-text">@OutsideText</span>
+</div>
+@code {
+    // Parameters for customization
+    [Parameter]
+    public int TargetNumber { get; set; }
+    [Parameter]
+    public string InsideText { get; set; }
+    [Parameter]
+    public string OutsideText { get; set; }
+    [Parameter]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Call JavaScript function to start the animation
+            await JS.InvokeVoidAsync("startCounterAnimation", $"counter-{Id}", TargetNumber);
+        }
+    }
+}

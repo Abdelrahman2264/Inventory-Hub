@@ -1,0 +1,85 @@
+﻿@page "/login"
+@inject InventoryDb db
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.Authentication
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication.Cookies
+<PageTitle>Login</PageTitle>
+<style>
+    body {
+        background-image: url('/images/AccountPage.jpg'); /* Adjust the path */
+        background-size: cover; /* Cover the full screen */
+        background-position: center; /* Center the image */
+        background-repeat: no-repeat; /* Prevent repetition */
+        height: 100%;
+        margin: 0;
+    }
+
+</style>
+<div class="d-flex justify-content-center align-items-center vh-100 ">
+    <div class="card shadow-lg p-4 rounded-lg opacity-75"   style="min-width: 25%;">
+
+        <div class="text-center d-flex align-items-center justify-content-center mb-3">
+            <!-- User Avatar -->
+            <img src="/images/images.png" alt="User Avatar" class="rounded-circle me-2" width="50" height="50" />
+            <h2 class="text-primary fw-bold mb-0">Login</h2>
+        </div>
+
+                <div class="card-body">
+                    <EditForm Model="@loginViewModel" OnValidSubmit="HandleValidSubmit" FormName="LoginForm">
+                        <DataAnnotationsValidator />
+                <div class="form-group mb-3">
+                    <div class="form-floating">
+                        <InputText @bind-Value="loginViewModel.Username" class="form-control border-1 border-black" id="Username" />
+                        <label for="Username">User Name</label>
+                        <ValidationMessage For="@(()=>loginViewModel.Username)" />
+                    </div>
+                </div>
+                <div class="form-group mb-3">
+                    <div class="form-floating">
+                        <InputText @bind-Value="loginViewModel.Password" class="form-control border-1 border-black" type="password" id="Password" />
+                        <label for="Password">Password</label>
+                        <ValidationMessage For="@(()=>loginViewModel.Password)" />
+                    </div>
+                </div>
+                    
+
+                        <div class="mb-3 text-center">
+                            <span class="text-danger fw-bold">@errorMessage</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 fw-bold p-2">Login</button>
+                    </EditForm>
+                </div>
+            
+        </div>
+
+</div>
+
+@code {
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+    [SupplyParameterFromForm]
+    public LoginViewModel loginViewModel { get; set; } = new LoginViewModel();
+    public string errorMessage { get; set; }
+
+    public async Task HandleValidSubmit()
+    {
+        var user = db.AppUsers.Where(u => u.LoginName == loginViewModel.Username).FirstOrDefault();
+        if (user is null || user.Password != loginViewModel.Password)
+        {
+            errorMessage = "Invalid username or password";
+            return;
+        }
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.Name, user.AppUserId.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.LoginName),
+            new Claim(ClaimTypes.Role, user.Role)
+        };
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+        await HttpContext.SignInAsync(principal);
+        NavigationManager.NavigateTo("/Dashboard");
+    }
+}

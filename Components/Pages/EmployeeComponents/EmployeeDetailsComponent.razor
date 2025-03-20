@@ -1,0 +1,114 @@
+﻿@page "/Employees/Details/{id:int}"
+@inject IJSRuntime JS
+@inject IAssignmentRepository _IAssign
+@inject IAssetRepository _IAsset
+@inject ILogService _ILogService
+@using Assignment = InventorySystem.ViewModels.Assignment
+@rendermode InteractiveServer
+<PageTitle>Employees</PageTitle>
+
+<BsModal OnModalConfirmation="ConfirmDelete_Click"
+         ButtonBootstrapStyle="btn-danger"
+         ButtonText="Delete"
+         Title="Are you sure you want to Take this Device From The  Employee ?">
+</BsModal>
+@if (isProcessing)
+{
+    <div class="position-absolute w-100 h-100 d-flex flex-column align-items-center bg-white justify-content-center">
+        <img src="/images/loading.gif" alt="Loading" />
+    </div>
+}
+else
+{
+    <div class="card shadow border-2">
+        <div class="card-header bg-dark bg-gradient text-white text-center py-3">
+            <h2 class="mb-0">Assigned Devices</h2>
+        </div>
+        <div class="row p-4">
+            @foreach (var assigned in assignments)
+            {
+                <div class="col-12 col-md-6 col-lg-4 mb-4 ">
+                    <div class="card shadow-lg rounded-4 h-100 border">
+                        <div class="card-header bg-primary text-white text-center fw-bolder border">
+                            <h5 class="mb-0"><i class="bi bi-pc-display"></i> @assigned.Asset.Type.Name</h5>
+                        </div>
+
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><strong>Serial Number:</strong> @assigned.Asset.SerialNumber</li>
+                                <li class="list-group-item"><strong>Brand:</strong> @assigned.Asset.Brand</li>
+                                <li class="list-group-item"><strong>Model:</strong> @assigned.Asset.ModelVersion</li>
+                                <li class="list-group-item"><strong>User:</strong> @(assigned.User.FirstName + " " + assigned.User.LastName)</li>
+                                <li class="list-group-item"><strong>Job Title:</strong> @assigned.User.JobTitle</li>
+                                <li class="list-group-item"><strong>Department:</strong> @assigned.User.Department.Name</li>
+                                <li class="list-group-item"><strong>Site:</strong> @assigned.User.Site.Name</li>
+                                <li class="list-group-item"><strong>Assigned Date:</strong> @assigned.AssignedDate.ToString("yyyy-MM-dd")</li>
+                            </ul>
+                        </div>
+                        <AuthorizeView Roles="Admin">
+                            <div class="card-footer d-flex justify-content-center">
+                                <button type="button" class="btn btn-danger btn-sm" @onclick="() => HandleDelete(assigned.AssignmentId , assigned.AssetId)">
+                                    <i class="bi bi-trash3"></i> Reclaim
+                                </button>
+                            </div>
+                        </AuthorizeView>
+
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    private bool isProcessing { get; set; } = false;
+    private IEnumerable<Assignment> assignments { get; set; } = new List<Assignment>();
+    private int DeletedId { get; set; }
+    private int AssetId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        await LoadTypes();
+        isProcessing = false;
+
+    }
+
+    private async Task LoadTypes()
+    {
+        assignments = await _IAssign.GetAssignmetsByIdAsync(Id);
+    }
+    public async Task HandleDelete(int id, int assetid)
+    {
+        DeletedId = id;
+        AssetId = assetid;
+        await JS.InvokeVoidAsync("ShowConfirmationModal");
+    }
+
+    private async Task ConfirmDelete_Click(bool isConfirmed)
+    {
+        isProcessing = true;
+        await JS.InvokeVoidAsync("HideConfirmationModal");
+        if (isConfirmed && DeletedId != 0)
+        {
+            var temp = await _IAsset.GetAssetAsync(AssetId);
+            var result = await _IAssign.ReturnFromAsync(DeletedId);
+            if (result)
+            {
+                await _ILogService.CreateLogAsync(AssetId, "Device Reclaim From The User", "Assignments", temp.Type.Name, DeletedId);
+                JS?.ToastrSuccess("Device Was Returned Successfully");
+            }
+            else
+            {
+                JS?.ToastrError("Error Encountered while deleting");
+            }
+            await LoadTypes();
+        }
+        DeletedId = 0;
+        isProcessing = false;
+    }
+
+}

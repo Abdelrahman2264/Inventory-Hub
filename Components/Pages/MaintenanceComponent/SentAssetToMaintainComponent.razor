@@ -1,0 +1,191 @@
+﻿@page "/Maintenance/Create"
+@inject NavigationManager _navigationManager
+@inject IAssetRepository _IAsset
+@inject IMaintenanceRepository _IMaintenance
+@inject IJSRuntime JS
+@inject ILogService _ILogService
+@using Asset = InventorySystem.ViewModels.Asset;
+@using Maintainence = InventorySystem.ViewModels.Maintenance;
+@rendermode InteractiveServer
+@attribute [Authorize]
+<PageTitle>Assets</PageTitle>
+
+
+@if (isProcessing)
+{
+    <div class=" position-absolute w-75 h-75 d-flex flex-column align-items-center bg-white justify-content-center ">
+        <img src="/images/Loading.gif" alt="Loading..." />
+    </div>
+}
+else
+{
+    <div class="card shadow border-2 m-4 ">
+        <div class="card-header bg-black bg-gradient ml-1 pt-3 border-2">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2 class="text-white py-2">Send Asset To Maintain</h2>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-4">
+
+            <EditForm Model="asset" FormName="DepartmentUpsertForm" OnValidSubmit="Maintain" class="flex-form">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <ValidationSummary></ValidationSummary>
+                <!-- Serial Number (Single Line) -->
+                <div class="form-group position-relative mb-2">
+                    <div class="form-floating">
+                        <input type="text" class="form-control border-1 border-black mb-2"
+                               @oninput="SearchAssets"
+                               value="@(SelectedAsset != null ? SelectedAsset.Type?.Name + " " + SelectedAsset.Brand + " " + SelectedAsset.ModelVersion + " " + SelectedAsset.SerialNumber : "")" />
+                        <label>Search About Serial Number in Assets</label>
+                    </div>
+                    @if (Assets.Any())
+                    {
+                        <div class="search-results mb-2">
+                            @foreach (var asset in Assets)
+                            {
+                                var x = AssetsinMaintaience.FirstOrDefault(u => u.AssetId == asset.AssetId);
+                                if (x == null)
+                                {
+                                    <div class="search-item mb-1" @onclick="() => SelectAsset(asset)">
+                                        <i class="bi bi-person-circle"></i>@asset.Type?.Name @asset.Brand @asset.ModelVersion (@asset.SerialNumber)
+                                    </div>
+                                }
+
+
+                            }
+                        </div>
+                    }
+
+                </div>
+                @if (SelectedAsset != null)
+                {
+                    <div class="card mt-3 mb-3 col-auto">
+                        <div class="card-header bg-primary text-white ">Device Details</div>
+                        <div class="card-body">
+                            <p><strong>Type:</strong> @SelectedAsset.Type?.Name</p>
+                            <p><strong>Serial Number:</strong> @SelectedAsset.SerialNumber</p>
+                            <p><strong>Status</strong> @(SelectedAsset.Status ?? "N/A")</p>
+                            <p><strong>Brand:</strong> @SelectedAsset.Brand</p>
+                            <p><strong>Model:</strong> @SelectedAsset.ModelVersion</p>
+
+                        </div>
+                    </div>
+                }
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputSelect @bind-Value="asset.Type" class="form-control border-1 border-black" id="Type">
+                            <option value="">Select Maintenance Type</option>
+                            <option value="Maintain In">Maintain In</option>
+                            <option value="Maintain Out">Maintain Out</option>
+                        </InputSelect>
+                        <label for="Type">Maintenance Type</label>
+                        <ValidationMessage For="@(() => asset.Type)" />
+                    </div>
+                </div>
+
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputDate @bind-Value="asset.DateReceived" class="form-control border-1 border-black" id="DateReceived" />
+                        <label for="DateReceived">Date Received</label>
+                        <ValidationMessage For="@(()=>asset.DateReceived)" />
+                    </div>
+                </div>
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="asset.Description" class="form-control border-1 border-black" id="Description" />
+                        <label for="Description">Issue Description</label>
+                        <ValidationMessage For="@(()=>asset.Description)" />
+                    </div>
+                </div>
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputDate @bind-Value="asset.CreatedAt" class="form-control border-1 border-black" id="CreatedAt" />
+                        <label for="CreatedAt">Send Date</label>
+                        <ValidationMessage For="@(()=>asset.CreatedAt)" />
+                    </div>
+                </div>
+                <div class="form-group mb-2">
+                    <div class="form-floating">
+                        <InputText @bind-Value="asset.Location" class="form-control border-1 border-black" id="Location" />
+                        <label for="Location">Location</label>
+                        <ValidationMessage For="@(()=>asset.Location)" />
+                    </div>
+                </div>
+
+                <!-- Submit and Back Buttons -->
+                <div class="form-group button-group">
+                    <div class="row mt-3 d-flex justify-content-end">
+                        <div class="col-auto">
+                            <button type="submit" class="btn  btn-success form-control" disabled="@isProcessing">Send Asset </button>
+                        </div>
+                        <div class="col-auto">
+                            <a href="Maintenance" class="btn btn-secondary ">Back To List</a>
+                        </div>
+                    </div>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+@code {
+    [SupplyParameterFromForm]
+    private new Maintainence asset { get; set; } = new Maintainence();
+    private bool isProcessing { get; set; } = false;
+    private Maintainence Temp { get; set; } = new Maintainence();
+    private Asset? SelectedAsset;
+    private IEnumerable<Asset> Assets = new List<Asset>();
+    private IEnumerable<Maintainence> AssetsinMaintaience = new List<Maintainence>();
+    private string searchAsset = string.Empty;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true;
+        AssetsinMaintaience = await _IMaintenance.GetAllMaintenances();
+        isProcessing = false;
+        StateHasChanged();
+    }
+    public async Task Maintain()
+    {
+        isProcessing = true;
+        bool flag = false;
+        if (asset.MaintenanceId == 0)
+        {
+            await _IMaintenance.MaintainAsset(asset);
+            await _ILogService.CreateLogAsync(asset.AssetId, "Send This Asset To Maintenance", "Maintain", asset.Asset.Type.Name);
+            JS?.ToastrSuccess("Asset Sent To Maintain Successfully");
+            flag = true;
+
+        }
+        isProcessing = false;
+        _navigationManager.NavigateTo("Maintenance");
+        if (!flag)
+        {
+            JS?.ToastrError("Something Get Wrong Please Try Again !!");
+        }
+    }
+    private void SelectAsset(Asset assets)
+    {
+        SelectedAsset = assets;
+        asset.AssetId = assets.AssetId;
+        Assets = new List<Asset>();
+    }
+    private async Task SearchAssets(ChangeEventArgs e)
+    {
+        searchAsset = e.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(searchAsset))
+        {
+            Assets = await _IAsset.SearchAssetAsync(searchAsset);
+
+            StateHasChanged();
+        }
+        else
+        {
+            Assets = new List<Asset>();
+
+        }
+    }
+
+}
