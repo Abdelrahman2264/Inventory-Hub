@@ -58,28 +58,13 @@ assets with role-based access and digital documentation.
 
 ------------------------------------------------------------------------
 
-## 📂 Project Structure
-
-``` plaintext
-InventoryHub/
-├── Data/               # Database context and seed data
-├── Models/             # Entity models (Device, User, Maintenance, Assignment, etc.)
-├── Pages/              # Blazor pages (.razor files)
-├── Services/           # Business logic & helper services
-├── Components/         # Shared reusable components
-├── wwwroot/            # Static files (CSS, JS, images)
-├── Controllers/        # API Controllers (if needed for exports/reports)
-└── Program.cs          # Application entry point
-```
-
-------------------------------------------------------------------------
 
 ## ⚙️ Installation & Setup
 
 1.  **Clone Repository**
 
     ``` bash
-    git clone https://github.com/your-username/InventoryHub.git
+    git clone https://github.com/Abdelrahman2264/InventoryHub.git
     cd InventoryHub
     ```
 
@@ -125,23 +110,6 @@ InventoryHub/
     history → Admin exports maintenance logs in Excel/PDF.\
 -   Manager views dashboard of assets in stock, assigned devices, and
     maintenance schedules.
-
-------------------------------------------------------------------------
-
-## 📑 Roadmap / Future Enhancements
-
--   🔔 Email / in-app notifications for asset assignments & maintenance
-    due dates\
--   📱 Mobile-friendly UI with responsive Blazor components\
--   🗃️ Integration with Active Directory / LDAP\
--   📦 API for third-party integrations
-
-------------------------------------------------------------------------
-
-## 🤝 Contributing
-
-Contributions are welcome!\
-Please open an issue or submit a pull request with improvements.
 
 ------------------------------------------------------------------------
 
